@@ -14,163 +14,82 @@ from functools import partial
 # -- extra deps --
 from timm.models.layers import trunc_normal_
 
+# -- rescale flow --
+from dev_basics import flow
+
 # -- project deps --
-from .proj import InputProj,InputProjSeq,OutputProj,OutputProjSeq
-from .basic_uformer import BasicUformerLayer
-from .basic_uformer import create_basic_enc_layer,create_basic_dec_layer
-from .basic_uformer import create_basic_conv_layer
+from .basic import BasicBlockList
 from .scaling import Downsample,Upsample
-from .parse import fields2blocks
-from ..utils.model_utils import apply_freeze,rescale_flows
-# from ..utils.model_utils import expand_embed_dims
+from .proj import InputProj,InputProjSeq,OutputProj,OutputProjSeq
+from ..utils.model_utils import apply_freeze
 
 class SrNet(nn.Module):
-    def __init__(self, img_size=256, in_chans=3, dd_in=3,
-                 input_proj_depth=1,output_proj_depth=1,
-                 depths=[2, 2, 2, 2, 2],
-                 num_heads=[1, 2, 4, 8, 16],
-                 win_size=8, mlp_ratio=4.,
-                 qk_frac=1.,qkv_bias=True, qk_scale=None,
-                 drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-                 norm_layer=nn.LayerNorm, patch_norm=True,
-                 use_checkpoint=False, token_projection='linear', token_mlp='leff',
-                 dowsample=Downsample, upsample=Upsample, shift_flag=True,
-                 modulator=False, cross_modulator=False,
-                 attn_mode="default", k=-1, ps=1, pt=1, ws=8,
-                 wt=0, dil=1, stride0=1, stride1=1, nbwd=1, rbwd=False,
-                 exact=False, bs=-1, freeze=False,
-                 embed_dim=32, update_dists=False, **kwargs):
+
+    def __init__(self, arch_cfg, block_cfg, attn_cfg,
+                 search_cfg, up_cfg, down_cfg):
         super().__init__()
 
         # -- init --
-        self.num_enc_layers = len(depths)-1
-        self.num_dec_layers = len(depths)-1
-        self.patch_norm = patch_norm
-        self.mlp_ratio = mlp_ratio
-        self.token_projection = token_projection
-        self.mlp = token_mlp
-        self.win_size =win_size
-        self.reso = img_size
-        self.pos_drop = nn.Dropout(p=drop_rate)
-        self.dd_in = dd_in
-
-        # -- our search --
-        self.attn_mode = attn_mode
-        self.k = k
-        self.ps = ps
-        self.pt = pt
-        self.ws = ws
-        self.wt = wt
-        self.dil = dil
-        self.stride0 = stride0
-        self.stride1 = stride1
-        self.nbwd = nbwd
-        self.exact = exact
-        self.bs = bs
-        self.depths = depths
-        self.nblocks = len(depths)
-        self.qk_frac = qk_frac
-        num_encs = self.nblocks-1
-
-        # -- unroll for each module --
-        out = fields2blocks(attn_mode,k,ps,pt,ws,wt,dil,stride0,stride1,
-                            nbwd,rbwd,exact,bs,qk_frac,embed_dim,freeze,
-                            update_dists,nblocks=self.nblocks)
-        attn_mode,k,ps,pt,ws,wt,dil,stride0,stride1 = out[:9]
-        nbwd,rbwd,exact,bs,qk_frac,embed_dim,freeze = out[9:16]
-        update_dists = out[16]
-        self.freeze = freeze
-        self.update_dists = update_dists
-        # print(embed_dim)
-
-        # stochastic depth
-        enc_dpr = [x.item() for x in th.linspace(0, drop_path_rate,
-                                                    sum(depths[:self.num_enc_layers]))]
-        conv_dpr = [drop_path_rate]*depths[-1]
-        dec_dpr = enc_dpr[::-1]
-        # print(enc_dpr)
-
-        # -- reflect depths --
-        depths_ref = depths + depths[:-1][::-1]
-        num_heads_ref = num_heads + num_heads[0:][::-1]
-        # print(depths_ref)
+        self.num_blocks = len(block_cfg)
+        assert self.num_blocks % 2 == 1,"Must be odd."
+        self.num_encs = len(block_cfg)//2-1
+        self.num_decs = len(block_cfg)//2-1
+        self.dd_in = arch_cfg.dd_in
+        num_encs = self.num_encs
 
         # -- input/output --
-        self.input_proj = InputProjSeq(depth=input_proj_depth,
-                                       in_channel=dd_in, out_channel=embed_dim[0],
+        self.input_proj = InputProjSeq(depth=arch_cfg.input_proj_depth,
+                                       in_channel=arch_cfg.dd_in,
+                                       out_channel=arch_cfg.embed_dim,
                                        kernel_size=3, stride=1, act_layer=nn.LeakyReLU)
-        self.output_proj = OutputProj(in_channel=2*embed_dim[0],
-                                      out_channel=in_chans, kernel_size=3,
-                                      stride=1)
+        self.output_proj = OutputProj(in_channel=2*arch_cfg.embed_dim,
+                                      out_channel=arch_cfg.in_chans,
+                                      kernel_size=3,stride=1)
 
-        # -- init partial basic layer decl --
-        basic_enc_layer = partial(create_basic_enc_layer,BasicUformerLayer,embed_dim,
-                                  img_size,depths_ref,num_heads_ref,win_size,
-                                  self.mlp_ratio,qk_frac,qkv_bias,qk_scale,drop_rate,
-                                  attn_drop_rate,norm_layer,use_checkpoint,
-                                  token_projection,token_mlp,shift_flag,
-                                  attn_mode,k,ps,pt,ws,wt,dil,stride0,stride1,
-                                  nbwd,rbwd,num_encs,exact,bs,update_dists,enc_dpr)
-        basic_conv_layer = partial(create_basic_conv_layer,BasicUformerLayer,embed_dim,
-                                   img_size,depths_ref,num_heads_ref,win_size,
-                                   self.mlp_ratio,qk_frac,qkv_bias,qk_scale,drop_rate,
-                                   attn_drop_rate,norm_layer,use_checkpoint,
-                                   token_projection,token_mlp,shift_flag,
-                                   attn_mode,k,ps,pt,ws,wt,dil,stride0,stride1,
-                                   nbwd,rbwd,num_encs,exact,bs,update_dists,conv_dpr)
-        basic_dec_layer = partial(create_basic_dec_layer,BasicUformerLayer,embed_dim,
-                                  img_size,depths_ref,num_heads_ref,win_size,
-                                  self.mlp_ratio,qk_frac,qkv_bias,qk_scale,drop_rate,
-                                  attn_drop_rate,norm_layer,use_checkpoint,
-                                  token_projection,token_mlp,
-                                  shift_flag,modulator,cross_modulator,
-                                  attn_mode,k,ps,pt,ws,wt,dil,stride0,stride1,
-                                  nbwd,rbwd,num_encs,exact,bs,update_dists,dec_dpr)
-        # -- info --
-        # print("depths: ",depths)
-        # print("drop_path[enc]: ",enc_dpr)
-        # print("drop_path[dec]: ",dec_dpr)
-        # print("win_size: ",win_size)
-        # print("num_heads: ",num_heads)
-
-        # -- encoder --
+        # -- encoder layers --
         enc_list = []
         for l_enc in range(num_encs):
 
-            # -- decl --
-            mod_in = num_heads[l_enc]
-            mod_out = num_heads[l_enc+1]
-            # print("l_enc,mod_in,mod_out: ",l_enc,mod_in,mod_out)
-            setattr(self,"encoderlayer_%d" % l_enc,basic_enc_layer(l_enc))
-            setattr(self,"dowsample_%d" % l_enc,dowsample(embed_dim[l_enc]*mod_in,
-                                                          embed_dim[l_enc+1]*mod_out))
+            # -- init --
+            block_cfg_l = block_cfg[l_enc]
+            attn_cfg_l = attn_cfg[l_enc]
+            search_cfg_l = search_cfg[l_enc]
+            down_cfg_l = down_cfg[l_enc]
+            enc_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l)
+            down_layer = Downsample(down_cfg_l.in_dim,down_cfg_l.out_dim)
+            setattr(self,"encoderlayer_%d" % l_enc,enc_layer)
+            setattr(self,"dowsample_%d" % l_enc,down_layer)
+
             # -- add to list --
-            enc_layer = [getattr(self,"encoderlayer_%d" % l_enc),
-                         getattr(self,"dowsample_%d" % l_enc)]
-            enc_list.append(enc_layer)
+            paired_layer = [enc_layer,down_layer]
+            enc_list.append(paired_layer)
         self.enc_list = enc_list
 
         # -- center --
-        setattr(self,"conv",basic_conv_layer(num_encs))
+        block_cfg_l = block_cfg[num_encs]
+        attn_cfg_l = attn_cfg[num_encs]
+        search_cfg_l = search_cfg[num_encs]
+        setattr(self,"conv",BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l))
 
         # -- decoder --
         dec_list = []
-        for l_dec in range(num_encs):
+        for l_dec in range(num_encs+1,2*num_encs):
 
-            # -- decl --
-            l_rev = (num_encs - 1) - l_dec
-            mult = 1 if l_dec==0 else 2
-            mod_in,mod_out = num_heads[l_rev+1],num_heads[l_rev]
-            setattr(self,"upsample_%d" % l_dec,upsample(mult*embed_dim[l_rev+1]*mod_in,
-                                                        embed_dim[l_rev]*mod_out))
-            setattr(self,"decoderlayer_%d" % l_dec,basic_dec_layer(l_dec))
+            # -- init --
+            block_cfg_l = block_cfg[l_dec]
+            attn_cfg_l = attn_cfg[l_dec]
+            search_cfg_l = search_cfg[l_dec]
+            up_cfg_l = down_cfg[l_dec-num_encs-1]
+            up_layer = Upsample(up_cfg_l.in_dim,up_cfg_l.out_dim,)
+            dec_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l)
+            setattr(self,"upsample_%d" % l_dec,up_layer)
+            setattr(self,"decoderlayer_%d" % l_dec,dec_layer)
 
             # -- add to list --
-            dec_layer = [getattr(self,"upsample_%d" % l_dec),
-                         getattr(self,"decoderlayer_%d" % l_dec)]
-            dec_list.append(dec_layer)
-        self.dec_list = dec_list
+            paired_layer = [up_layer,dec_layer]
+            dec_list.append(paired_layer)
 
+        self.dec_list = dec_list
         self.apply(self._init_weights)
 
     def _apply_freeze(self):
@@ -194,14 +113,12 @@ class SrNet(nn.Module):
     def no_weight_decay_keywords(self):
         return {'relative_position_bias_table'}
 
-    def forward(self, x, mask=None, flows=None, states=None):
+    def forward(self, vid, flows=None, states=None):
 
         # -- Input Projection --
-        b,t,c,h,w = x.shape
-        y = self.input_proj(x)
+        b,t,c,h,w = vid.shape
+        y = self.input_proj(vid)
         y = self.pos_drop(y)
-        # print("y.shape: ",y.shape)
-        z = y
         num_encs = self.num_enc_layers
 
         # -- init states --
@@ -209,30 +126,31 @@ class SrNet(nn.Module):
             states = [None for _ in range(2*num_encs+1)]
 
         # -- enc --
+        z = y
         encs = []
         for i,(enc,down) in enumerate(self.enc_list):
-            _h,_w = h//(2**i),w//(2**i)
-            flows_i = rescale_flows(flows,_h,_w)
-            z = enc(z,_h,_w,mask=mask,flows=flows_i,state=states[i])
+            iH,iW = z.shape[-2:]
+            flows_i = flow.rescale_flows(flows,iH,iW)
+            z = enc(z,flows=flows_i,state=states[i])
             encs.append(z)
             z = down(z)
+            del flows_i
 
         # -- middle --
-        mod = 2**num_encs
-        _h,_w = h//mod,w//mod
-        flows_i = rescale_flows(flows,_h,_w)
-        z = self.conv(z,_h,_w,mask=mask,flows=flows_i)
+        iH,iW = z.shape[-2:]
+        flows_i = flow.rescale_flows(flows,iH,iW)
+        z = self.conv(z,flows=flows_i)
         del flows_i
 
         # -- dec --
         for i,(up,dec) in enumerate(self.dec_list):
             i_rev = (num_encs-1)-i
-            _h,_w = h//(2**(i_rev)),w//(2**(i_rev))
-            flows_i = rescale_flows(flows,_h,_w)
+            iH,iW = z.shape[-2:]
+            flows_i = flow.rescale_flows(flows,iH,iW)
             z = up(z)
             z = th.cat([z,encs[i_rev]],-3)
-            # print("z.shape: ",z.shape)
-            z = dec(z,_h,_w,mask=mask,flows=flows_i,state=states[i+num_encs])
+            z = dec(z,flows=flows_i,state=states[i+num_encs])
+            del flows_i
 
         # -- Output Projection --
         y = self.output_proj(z)

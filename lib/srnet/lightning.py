@@ -25,11 +25,12 @@ import cache_io
 
 # -- network --
 import srnet
-import srnet.configs as configs
-import srnet.utils.gpu_mem as gpu_mem
-from srnet.utils.timer import ExpTimer
-from srnet.utils.metrics import compute_psnrs,compute_ssims
-from srnet.utils.misc import rslice,write_pickle,read_pickle
+
+# -- misc --
+from dev_basics.utils.misc import rslice,write_pickle,read_pickle
+from dev_basics.utils.metrics import compute_psnrs,compute_ssims
+from dev_basics.utils.timer import ExpTimer
+import dev_basics.utils.gpu_mem as gpu_mem
 
 # -- noise sims --
 try:
