@@ -17,14 +17,15 @@ from .state import update_state,run_state_search
 import dnls
 
 class NonLocalAttention(nn.Module):
-    def __init__(self, attn_cfg, search_cfg):
+    def __init__(self, dim, attn_cfg, search_cfg):
 
         super().__init__()
 
         # -- init configs --
         self.attn_cfg = attn_cfg
         self.search_cfg = search_cfg
-        dim = attn_cfg.embed_dim
+        self.dim = dim
+        self.stride0 = self.search_cfg.stride0
 
         # -- attn info --
         self.qkv = ConvQKV(dim,attn_cfg.nheads,dim,
@@ -70,7 +71,7 @@ class NonLocalAttention(nn.Module):
         v_patches = unfold(v_vid)
         return q_patches,k_patches,v_patches
 
-    def run_softmax(self,dists,mask,vshape):
+    def run_softmax(self,dists,vshape):
         dists = self.softmax(dists)
         dists = self.attn_drop(dists)
         dists = dists.contiguous()
@@ -100,7 +101,7 @@ class NonLocalAttention(nn.Module):
     def run_fold(self,patches,vshape):
 
         # -- init folding --
-        B,ps = vshape[0],self.ps
+        B,ps = vshape[0],self.search_cfg.ps
         fold = self.init_fold(vshape,patches.device)
 
         # -- reshape for folding --
@@ -135,7 +136,7 @@ class NonLocalAttention(nn.Module):
         dists,inds = self.run_search(q_vid,k_vid,state)
 
         # -- softmax --
-        dists = self.run_softmax(dists,mask,vid.shape)
+        dists = self.run_softmax(dists,vid.shape)
 
         # -- aggregate --
         patches = self.run_aggregation(v_vid,dists,inds)
@@ -306,7 +307,7 @@ class NonLocalAttention(nn.Module):
         flops += nrefs * self.dim * self.dim
 
         # -- fold --
-        ps = self.ps
+        ps = self.search_cfg.ps
         flops += nrefs * ps * ps
         # print(flops)
 

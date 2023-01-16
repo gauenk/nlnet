@@ -25,7 +25,7 @@ class BasicBlockList(nn.Module):
 
     def forward(self, vid, flows=None, state=None):
         for blk in self.blocks:
-            vid = blk(vid,h,w,mask,flows,state)
+            vid = blk(vid,flows,state)
         return vid
 
     def flops(self,h,w):
@@ -49,14 +49,17 @@ class BasicBlock(nn.Module):
         self.drop_path_rate = block_cfg.drop_rate_path
         norm_layer = get_norm_layer(block_cfg.norm_layer)
         dpath = self.drop_path_rate
+        self.type = block_cfg.type
+        mult = 2 if self.type == "dec" else 1
 
         # -- init layer --
-        self.norm1 = norm_layer(self.dim)
+        self.norm1 = norm_layer(self.dim*mult)
         self.attn_mode = attn_cfg.attn_mode
-        self.attn = NonLocalAttention(attn_cfg,search_cfg)
+        self.attn = NonLocalAttention(self.dim*mult,attn_cfg,search_cfg)
         self.drop_path = DropPath(dpath) if dpath > 0. else nn.Identity()
-        self.norm2 = norm_layer(self.dim)
-        self.mlp = init_mlp(self.block_mlp,self.mlp_ratio,self.drop_mlp_rate,self.dim)
+        self.norm2 = norm_layer(self.dim*mult)
+        self.mlp = init_mlp(self.block_mlp,self.mlp_ratio,
+                            self.drop_mlp_rate,self.dim*mult)
 
     def extra_repr(self) -> str:
         return str(self.block_cfg)
@@ -73,6 +76,7 @@ class BasicBlock(nn.Module):
 
         # -- norm layer --
         vid = vid.view(B*T,C,H*W)
+        print("a: ",vid.shape)
         vid = self.norm1(vid.transpose(1,2)).transpose(1,2)
         vid = vid.view(B, T, C, H, W)
 
@@ -95,10 +99,6 @@ class BasicBlock(nn.Module):
 
     def flops(self,H,W):
         flops = 0
-        if self.cross_modulator is not None:
-            flops += self.dim * H * W
-            flops += self.cross_attn.flops(H*W, self.win_size*self.win_size)
-
         # norm1
         flops += self.dim * H * W
         # W-MSA/SW-MSA

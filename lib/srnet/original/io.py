@@ -16,6 +16,7 @@ from ..utils import model_io
 from functools import partial
 from dev_basics.common import optional as _optional
 from dev_basics.common import optional_fields
+from dev_basics.common import set_defaults
 from dev_basics.common import extract_config,extract_pairs,cfg2lists
 _fields = [] # fields for model io; populated using this code section
 optional_full = partial(optional_fields,_fields)
@@ -65,8 +66,11 @@ def create_upsample_cfg(block_cfg):
     for l in range(len(block_cfg)//2):
         cfg_l = edict()
         cfg_l.in_dim = block_cfg[l].embed_dim
+        if l > 0:
+            cfg_l.in_dim = 2 * cfg_l.in_dim
         cfg_l.out_dim = block_cfg[l+1].embed_dim
         cfgs.append(cfg_l)
+    print(cfgs)
     return cfgs
 
 def create_downsample_cfg(block_cfg):
@@ -82,6 +86,12 @@ def create_downsample_cfg(block_cfg):
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 #     Configs for "io"
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+def get_defs():
+    defs = edict()
+    # defs.nheads = [1,2,4,8,16]
+    defs.nheads = [1,1,1,1,1]
+    return defs
 
 def extract_io_config(_cfg,optional):
     sigma = optional(_cfg,"sigma",0.)
@@ -103,15 +113,27 @@ def extract_search_config(_cfg,optional,nblocks):
              "refine_inds":[False,False,False,False,False,
                             True,True,True,True],
              "dilation":1,"return_inds":False,
-             "search_type":"dnls_prod","nheads":[1, 2, 4, 8, 16],
+             "search_type":"dnls_prod","nheads":"see_defs",
     }
+
+    # -- set shared defaults --
+    defs = get_defs()
+    set_defaults(defs,pairs)
+
+    # -- extract --
     return cfg2lists(extract_pairs(pairs,_cfg,optional),nblocks)
 
 def extract_attn_config(_cfg,optional,nblocks):
-    pairs = {"qk_frac":1.,"qkv_bias":True,"qk_scale":None,
+    pairs = {"qk_frac":1.,"qkv_bias":True,"scale":10.,
              "token_mlp":'leff',"embed_dim":32,"attn_mode":"default",
              "nheads":[1, 2, 4, 8, 16],"token_projection":'linear',
              "drop_rate_attn":0.,"drop_rate_proj":0.}
+
+    # -- set shared defaults --
+    defs = get_defs()
+    set_defaults(defs,pairs)
+
+    # -- extract --
     return cfg2lists(extract_pairs(pairs,_cfg,optional),nblocks)
 
 def extract_block_config(_cfg,optional):
@@ -122,6 +144,12 @@ def extract_block_config(_cfg,optional):
                 "block_mlp":"mlp","norm_layer":"LayerNorm",
                 "drop_rate_mlp":0.,"drop_rate_path":0.1}
     pairs = shape | training
+
+    # -- set shared defaults --
+    defs = get_defs()
+    set_defaults(defs,pairs)
+
+    # -- extract --
     return cfg2lists(extract_pairs(pairs,_cfg,optional),shape['nblocks'])
 
 def extract_arch_config(_cfg,optional):
@@ -129,9 +157,13 @@ def extract_arch_config(_cfg,optional):
              "dowsample":Downsample, "upsample":Upsample,
              "embed_dim":32,
              "input_proj_depth":1,
-             "output_proj_depth":1,}
+             "output_proj_depth":1,"drop_rate_pos":0.}
+    # -- set shared defaults --
+    defs = get_defs()
+    set_defaults(defs,pairs)
+
+    # -- extract --
     return extract_pairs(pairs,_cfg,optional)
 
 # -- run to populate "_fields" --
 load_model(edict({"__init":True}))
-

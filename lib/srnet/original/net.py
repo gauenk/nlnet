@@ -32,10 +32,11 @@ class SrNet(nn.Module):
         # -- init --
         self.num_blocks = len(block_cfg)
         assert self.num_blocks % 2 == 1,"Must be odd."
-        self.num_encs = len(block_cfg)//2-1
-        self.num_decs = len(block_cfg)//2-1
+        self.num_encs = len(block_cfg)//2
+        self.num_decs = len(block_cfg)//2
         self.dd_in = arch_cfg.dd_in
         num_encs = self.num_encs
+        self.pos_drop = nn.Dropout(p=arch_cfg.drop_rate_pos)
 
         # -- input/output --
         self.input_proj = InputProjSeq(depth=arch_cfg.input_proj_depth,
@@ -55,6 +56,7 @@ class SrNet(nn.Module):
             attn_cfg_l = attn_cfg[l_enc]
             search_cfg_l = search_cfg[l_enc]
             down_cfg_l = down_cfg[l_enc]
+            block_cfg_l.type = "enc"
             enc_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l)
             down_layer = Downsample(down_cfg_l.in_dim,down_cfg_l.out_dim)
             setattr(self,"encoderlayer_%d" % l_enc,enc_layer)
@@ -67,20 +69,22 @@ class SrNet(nn.Module):
 
         # -- center --
         block_cfg_l = block_cfg[num_encs]
+        block_cfg_l.type = "conv"
         attn_cfg_l = attn_cfg[num_encs]
         search_cfg_l = search_cfg[num_encs]
         setattr(self,"conv",BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l))
 
         # -- decoder --
         dec_list = []
-        for l_dec in range(num_encs+1,2*num_encs):
+        for l_dec in range(num_encs+1,2*num_encs+1):
 
             # -- init --
             block_cfg_l = block_cfg[l_dec]
             attn_cfg_l = attn_cfg[l_dec]
             search_cfg_l = search_cfg[l_dec]
-            up_cfg_l = down_cfg[l_dec-num_encs-1]
-            up_layer = Upsample(up_cfg_l.in_dim,up_cfg_l.out_dim,)
+            up_cfg_l = up_cfg[l_dec-(num_encs+1)]
+            block_cfg_l.type = "dec"
+            up_layer = Upsample(up_cfg_l.in_dim,up_cfg_l.out_dim)
             dec_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l)
             setattr(self,"upsample_%d" % l_dec,up_layer)
             setattr(self,"decoderlayer_%d" % l_dec,dec_layer)
@@ -119,7 +123,7 @@ class SrNet(nn.Module):
         b,t,c,h,w = vid.shape
         y = self.input_proj(vid)
         y = self.pos_drop(y)
-        num_encs = self.num_enc_layers
+        num_encs = self.num_encs
 
         # -- init states --
         if states is None:
@@ -132,6 +136,7 @@ class SrNet(nn.Module):
             iH,iW = z.shape[-2:]
             flows_i = flow.rescale_flows(flows,iH,iW)
             z = enc(z,flows=flows_i,state=states[i])
+            print("i: %d" % i,z.shape)
             encs.append(z)
             z = down(z)
             del flows_i
@@ -141,22 +146,27 @@ class SrNet(nn.Module):
         flows_i = flow.rescale_flows(flows,iH,iW)
         z = self.conv(z,flows=flows_i)
         del flows_i
+        print("[mid]: ",z.shape)
 
         # -- dec --
         for i,(up,dec) in enumerate(self.dec_list):
             i_rev = (num_encs-1)-i
             iH,iW = z.shape[-2:]
             flows_i = flow.rescale_flows(flows,iH,iW)
+            print("[1] i: %d" % i,z.shape)
             z = up(z)
             z = th.cat([z,encs[i_rev]],-3)
+            print("[2] i: %d" % i,z.shape)
             z = dec(z,flows=flows_i,state=states[i+num_encs])
+            print("[3] i: %d" % i,z.shape)
             del flows_i
 
         # -- Output Projection --
         y = self.output_proj(z)
+        print("y.shape: ",y.shape)
 
         # -- residual connection --
-        out = x + y if self.dd_in == 3 else y
+        out = vid + y if self.dd_in == 3 else y
 
         return out
 
