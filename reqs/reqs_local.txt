@@ -1,0 +1,8 @@
+-e ../dnls
+-e ../cache_io
+-e ../dev_basics
+-e ../data_hub
+-e ../n3net
+-e ../colanet
+-e ../lidia
+-e .
