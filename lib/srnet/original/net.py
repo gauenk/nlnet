@@ -134,8 +134,12 @@ class SrNet(nn.Module):
         z = y
         encs = []
         for i,(enc,down) in enumerate(self.enc_list):
+            # -- create state --
+            states_i = [states[i],states[i+1]]
+
+            # -- forward --
             iH,iW = z.shape[-2:]
-            z = enc(z,flows=flows,state=states[i])
+            z = enc(z,flows=flows,state=states_i)
             self.iprint("[enc] i: %d" % i,z.shape)
             encs.append(z)
             z = down(z)
@@ -148,13 +152,19 @@ class SrNet(nn.Module):
 
         # -- dec --
         for i,(up,dec) in enumerate(self.dec_list):
+
+            # -- create state --
+            sinds = [i-1+num_encs,i+num_encs,i]
+            states_i = [states[j] for j in sinds]
+
+            # -- forward --
             i_rev = (num_encs-1)-i
             iH,iW = z.shape[-2:]
             z = up(z)
             self.iprint("[up] i: %d" % i,z.shape)
             z = th.cat([z,encs[i_rev]],-3)
             self.iprint("[cat] i: %d" % i,z.shape)
-            z = dec(z,flows=flows,state=states[i+num_encs])
+            z = dec(z,flows=flows,state=states_i)
             self.iprint("[dec] i: %d" % i,z.shape)
 
         # -- Output Projection --
