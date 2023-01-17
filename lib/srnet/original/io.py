@@ -110,10 +110,14 @@ def extract_search_config(_cfg,optional,nblocks):
              "stride0":4,"stride1":1,"bs":-1,
              "rbwd":False,"nbwd":1,"exact":False,
              "reflect_bounds":False,
-             "refine_inds":[False,False,False,False,False,
-                            True,True,True,True],
+             "refine_inds":[False,False,
+                            False,
+                            False,False],
              "dilation":1,"return_inds":False,
              "search_type":"dnls_prod","nheads":"see_defs",
+             "use_flow":[True,True,
+                         True,
+                         True,True]
     }
 
     # -- set shared defaults --

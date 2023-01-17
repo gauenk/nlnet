@@ -14,9 +14,6 @@ from functools import partial
 # -- extra deps --
 from timm.models.layers import trunc_normal_
 
-# -- rescale flow --
-from dev_basics import flow
-
 # -- project deps --
 from .basic import BasicBlockList
 from .scaling import Downsample,Upsample
@@ -134,8 +131,7 @@ class SrNet(nn.Module):
         encs = []
         for i,(enc,down) in enumerate(self.enc_list):
             iH,iW = z.shape[-2:]
-            flows_i = flow.rescale_flows(flows,iH,iW)
-            z = enc(z,flows=flows_i,state=states[i])
+            z = enc(z,flows=flows,state=states[i])
             print("i: %d" % i,z.shape)
             encs.append(z)
             z = down(z)
@@ -143,8 +139,7 @@ class SrNet(nn.Module):
 
         # -- middle --
         iH,iW = z.shape[-2:]
-        flows_i = flow.rescale_flows(flows,iH,iW)
-        z = self.conv(z,flows=flows_i)
+        z = self.conv(z,flows=flows)
         del flows_i
         print("[mid]: ",z.shape)
 
@@ -152,12 +147,11 @@ class SrNet(nn.Module):
         for i,(up,dec) in enumerate(self.dec_list):
             i_rev = (num_encs-1)-i
             iH,iW = z.shape[-2:]
-            flows_i = flow.rescale_flows(flows,iH,iW)
             print("[1] i: %d" % i,z.shape)
             z = up(z)
             z = th.cat([z,encs[i_rev]],-3)
             print("[2] i: %d" % i,z.shape)
-            z = dec(z,flows=flows_i,state=states[i+num_encs])
+            z = dec(z,flows=flows,state=states[i+num_encs])
             print("[3] i: %d" % i,z.shape)
             del flows_i
 

@@ -7,6 +7,9 @@ from einops import rearrange,repeat
 # -- extra deps --
 from timm.models.layers import trunc_normal_
 
+# -- rescale flow --
+from dev_basics import flow
+
 # -- project deps --
 from .proj import ConvQKV
 
@@ -26,6 +29,7 @@ class NonLocalAttention(nn.Module):
         self.search_cfg = search_cfg
         self.dim = dim
         self.stride0 = self.search_cfg.stride0
+        self.use_flow = self.search_cfg.use_flow
 
         # -- attn info --
         self.qkv = ConvQKV(dim,attn_cfg.nheads,dim,
@@ -126,7 +130,9 @@ class NonLocalAttention(nn.Module):
 
     def forward(self, vid, flows=None, state=None):
 
-        # -- init --
+        # -- update flow --
+        B,T,C,H,W = vid.shape
+        if self.use_flows: flows = flow.rescale_flows(flows,H,W)
         self.search.update_flow(vid.shape,vid.device,flows)
 
         # -- qkv --
