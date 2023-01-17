@@ -55,7 +55,7 @@ class BasicBlock(nn.Module):
         # -- init layer --
         self.norm1 = norm_layer(self.dim*mult)
         self.attn_mode = attn_cfg.attn_mode
-        self.attn = NonLocalAttention(self.dim*mult,attn_cfg,search_cfg)
+        self.attn = NonLocalAttention(mult,attn_cfg,search_cfg)
         self.drop_path = DropPath(dpath) if dpath > 0. else nn.Identity()
         self.norm2 = norm_layer(self.dim*mult)
         self.mlp = init_mlp(self.block_mlp,self.mlp_ratio,
@@ -76,7 +76,6 @@ class BasicBlock(nn.Module):
 
         # -- norm layer --
         vid = vid.view(B*T,C,H*W)
-        print("a: ",vid.shape)
         vid = self.norm1(vid.transpose(1,2)).transpose(1,2)
         vid = vid.view(B, T, C, H, W)
 

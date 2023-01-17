@@ -56,6 +56,10 @@ class Upsample(nn.Module):
         self.in_channel = in_channel
         self.out_channel = out_channel
 
+    def extra_repr(self) -> str:
+        str_repr = "Upsample(in=%d,out=%d" % (self.in_channel,self.out_channel)
+        return str_repr
+
     def forward(self, x):
         # print("x.shape: ",x.shape)
         B, T, C, H, W = x.shape

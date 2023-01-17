@@ -35,6 +35,9 @@ class SrNet(nn.Module):
         num_encs = self.num_encs
         self.pos_drop = nn.Dropout(p=arch_cfg.drop_rate_pos)
 
+        # -- dev --
+        self.inspect_print = False
+
         # -- input/output --
         self.input_proj = InputProjSeq(depth=arch_cfg.input_proj_depth,
                                        in_channel=arch_cfg.dd_in,
@@ -80,6 +83,7 @@ class SrNet(nn.Module):
             attn_cfg_l = attn_cfg[l_dec]
             search_cfg_l = search_cfg[l_dec]
             up_cfg_l = up_cfg[l_dec-(num_encs+1)]
+            # up_cfg_l = up_cfg[l_dec]
             block_cfg_l.type = "dec"
             up_layer = Upsample(up_cfg_l.in_dim,up_cfg_l.out_dim)
             dec_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l)
@@ -132,32 +136,30 @@ class SrNet(nn.Module):
         for i,(enc,down) in enumerate(self.enc_list):
             iH,iW = z.shape[-2:]
             z = enc(z,flows=flows,state=states[i])
-            print("i: %d" % i,z.shape)
+            self.iprint("[enc] i: %d" % i,z.shape)
             encs.append(z)
             z = down(z)
-            del flows_i
+            self.iprint("[dow] i: %d" % i,z.shape)
 
         # -- middle --
         iH,iW = z.shape[-2:]
         z = self.conv(z,flows=flows)
-        del flows_i
-        print("[mid]: ",z.shape)
+        self.iprint("[mid]: ",z.shape)
 
         # -- dec --
         for i,(up,dec) in enumerate(self.dec_list):
             i_rev = (num_encs-1)-i
             iH,iW = z.shape[-2:]
-            print("[1] i: %d" % i,z.shape)
             z = up(z)
+            self.iprint("[up] i: %d" % i,z.shape)
             z = th.cat([z,encs[i_rev]],-3)
-            print("[2] i: %d" % i,z.shape)
+            self.iprint("[cat] i: %d" % i,z.shape)
             z = dec(z,flows=flows,state=states[i+num_encs])
-            print("[3] i: %d" % i,z.shape)
-            del flows_i
+            self.iprint("[dec] i: %d" % i,z.shape)
 
         # -- Output Projection --
         y = self.output_proj(z)
-        print("y.shape: ",y.shape)
+        self.iprint("y.shape: ",y.shape)
 
         # -- residual connection --
         out = vid + y if self.dd_in == 3 else y
@@ -167,6 +169,10 @@ class SrNet(nn.Module):
     @property
     def max_batch_size(self):
         return -1
+
+    def iprint(self,*args,**kwargs):
+        if self.inspect_print:
+            print(*args,**kwargs)
 
     def flops(self,h,w):
 

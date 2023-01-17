@@ -20,19 +20,21 @@ from .state import update_state,run_state_search
 import dnls
 
 class NonLocalAttention(nn.Module):
-    def __init__(self, dim, attn_cfg, search_cfg):
+    def __init__(self, dim_mult, attn_cfg, search_cfg):
 
         super().__init__()
 
         # -- init configs --
+        dim = attn_cfg.embed_dim*attn_cfg.nheads*dim_mult
+        self.dim = dim
         self.attn_cfg = attn_cfg
         self.search_cfg = search_cfg
-        self.dim = dim
         self.stride0 = self.search_cfg.stride0
         self.use_flow = self.search_cfg.use_flow
 
         # -- attn info --
-        self.qkv = ConvQKV(dim,attn_cfg.nheads,dim,
+        self.qkv = ConvQKV(dim,attn_cfg.nheads,
+                           dim_mult*attn_cfg.embed_dim,
                            attn_cfg.qk_frac,bias=attn_cfg.qkv_bias)
         self.token_projection = attn_cfg.token_projection
         self.attn_drop = nn.Dropout(attn_cfg.drop_rate_attn)
@@ -66,14 +68,6 @@ class NonLocalAttention(nn.Module):
         v_vid = v_vid.view(B,T,-1,H,W)
 
         return q_vid,k_vid,v_vid
-
-    def get_qkv_patches(self,vid):
-        # -- unfold --
-        q_vid,k_vid,v_vid = self.get_qkv(vid)
-        q_patches = unfold(q_vid)
-        k_patches = unfold(k_vid)
-        v_patches = unfold(v_vid)
-        return q_patches,k_patches,v_patches
 
     def run_softmax(self,dists,vshape):
         dists = self.softmax(dists)
@@ -132,7 +126,7 @@ class NonLocalAttention(nn.Module):
 
         # -- update flow --
         B,T,C,H,W = vid.shape
-        if self.use_flows: flows = flow.rescale_flows(flows,H,W)
+        if self.use_flow: flows = flow.rescale_flows(flows,H,W)
         self.search.update_flow(vid.shape,vid.device,flows)
 
         # -- qkv --

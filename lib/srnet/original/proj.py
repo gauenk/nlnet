@@ -289,7 +289,7 @@ class ConvProjectionNoReshape(nn.Module):
         return flops
 
 class ConvQKV(nn.Module):
-    def __init__(self, dim, heads = 8, dim_head = 64, qk_frac=1.,
+    def __init__(self, input_dim, heads = 8, dim_head = 64, qk_frac=1.,
                  kernel_size=1,q_stride=1, k_stride=1, v_stride=1, dropout = 0.,
                  last_stage=False,bias=True):
 
@@ -299,13 +299,13 @@ class ConvQKV(nn.Module):
         inner_dim_qk = int(qk_frac*dim_head) * heads
         self.heads = heads
         pad = (kernel_size - q_stride)//2
-        self.to_q = nn.Conv2d(dim, inner_dim_qk, kernel_size=kernel_size,
+        self.to_q = nn.Conv2d(input_dim, inner_dim_qk, kernel_size=kernel_size,
                               stride=q_stride, padding=pad, bias=bias,
                               groups=1,padding_mode="reflect")
-        self.to_k = nn.Conv2d(dim, inner_dim_qk, kernel_size=kernel_size,
+        self.to_k = nn.Conv2d(input_dim, inner_dim_qk, kernel_size=kernel_size,
                               stride=k_stride, padding=pad, bias=bias,
                               groups=1,padding_mode="reflect")
-        self.to_v = nn.Conv2d(dim, inner_dim, kernel_size=kernel_size,
+        self.to_v = nn.Conv2d(input_dim, inner_dim, kernel_size=kernel_size,
                               stride=v_stride, padding=pad, bias=bias,
                               groups=1,padding_mode="reflect")
 
