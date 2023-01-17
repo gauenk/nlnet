@@ -54,8 +54,8 @@ from pytorch_lightning.utilities.distributed import rank_zero_only
 class SrNetLit(pl.LightningModule):
 
 
-    def __init__(self,model_cfg,batch_size=1,flow=True,
-                 isize=None,bw=False,
+    def __init__(self,model_cfg,batch_size=1,
+                 flow=True,flow_method="cv2",isize=None,bw=False,
                  lr_init=1e-3,lr_final=1e-8,weight_decay=1e-4,nepochs=0,
                  warmup_epochs=0,scheduler="default",
                  task=0,uuid="",sim_type="g",sim_device="cuda:0"):
@@ -65,15 +65,14 @@ class SrNetLit(pl.LightningModule):
         self.weight_decay = weight_decay
         self.scheduler = scheduler
         self.nepochs = nepochs
-        self._model = [srnet.load_model(model_cfg)]
         self.bw = bw
-        self.net = self._model[0]#.model
+        self.net = srnet.load_model(model_cfg)
         self.batch_size = batch_size
         self.flow = flow
+        self.flow_method = flow_method
         self.isize = isize
         self.gen_loger = logging.getLogger('lightning')
         self.gen_loger.setLevel("NOTSET")
-        self.ca_fwd = "dnls_k"
         self.sim_model = self.get_sim_model(sim_type,sim_device)
 
     def get_sim_model(self,sim_type,sim_device):
@@ -85,29 +84,8 @@ class SrNetLit(pl.LightningModule):
             raise ValueError(f"Unknown sim model [{sim_type}]")
 
     def forward(self,vid):
-        if self.ca_fwd == "dnls_k" or self.ca_fwd == "dnls":
-            return self.forward_dnls_k(vid)
-        elif self.ca_fwd == "default":
-            return self.forward_default(vid)
-        else:
-            msg = f"Uknown ca forward type [{self.ca_fwd}]"
-            raise ValueError(msg)
-
-    def forward_dnls_k(self,vid):
-        flows = flow.orun(vid,self.flow)
+        flows = flow.orun(vid,self.flow,ftype=self.flow_method)
         deno = self.net(vid,flows=flows)
-        deno = th.clamp(deno,0.,1.)
-        return deno
-
-    def forward_default(self,vid):
-        flows = flow.orun(vid,self.flow)
-        model = self._model[0]
-        model.model = self.net
-        if self.isize is None:
-            deno = model.forward_chop(vid,flows=flows)
-        else:
-            deno = self.net(vid,flows=flows)
-        deno = th.clamp(deno,0.,1.)
         return deno
 
     def sample_noisy(self,batch):
@@ -138,14 +116,17 @@ class SrNetLit(pl.LightningModule):
 
         # -- each sample in batch --
         loss = 0 # init @ zero
-        nbatch = len(batch['noisy'])
         denos,cleans = [],[]
-        for i in range(nbatch):
-            deno_i,clean_i,loss_i = self.training_step_i(batch, i)
+        ntotal = len(batch['noisy'])
+        nbatch = ntotal
+        nbatches = (ntotal-1)//nbatch+1
+        for i in range(nbatches):
+            start,stop = i*nbatch,min((i+1)*nbatch,ntotal)
+            deno_i,clean_i,loss_i = self.training_step_i(batch, start, stop)
             loss += loss_i
             denos.append(deno_i)
             cleans.append(clean_i)
-        loss = loss / nbatch
+        loss = loss / nbatches
 
         # -- append --
         denos = th.stack(denos)
@@ -164,16 +145,11 @@ class SrNetLit(pl.LightningModule):
 
         return loss
 
-    def training_step_i(self, batch, i):
+    def training_step_i(self, batch, start, stop):
 
         # -- unpack batch
-        noisy = batch['noisy'][i]/255.
-        clean = batch['clean'][i]/255.
-        region = batch['region'][i]
-
-        # -- get data --
-        noisy = rslice(noisy,region)
-        clean = rslice(clean,region)
+        noisy = batch['noisy'][start:stop]/255.
+        clean = batch['clean'][start:stop]/255.
         # print("noisy.shape: ",noisy.shape)
 
         # -- foward --
@@ -189,10 +165,7 @@ class SrNetLit(pl.LightningModule):
         self.sample_noisy(batch)
 
         # -- denoise --
-        noisy,clean = batch['noisy'][0]/255.,batch['clean'][0]/255.
-        region = batch['region'][0]
-        noisy = rslice(noisy,region)
-        clean = rslice(clean,region)
+        noisy,clean = batch['noisy']/255.,batch['clean']/255.
 
         # -- forward --
         gpu_mem.print_peak_gpu_stats(False,"val",reset=True)
@@ -221,10 +194,8 @@ class SrNetLit(pl.LightningModule):
         self.sample_noisy(batch)
 
         # -- denoise --
-        index,region = batch['index'][0],batch['region'][0]
-        noisy,clean = batch['noisy'][0]/255.,batch['clean'][0]/255.
-        noisy = rslice(noisy,region)
-        clean = rslice(clean,region)
+        index = int(batch['index'][0].item())
+        noisy,clean = batch['noisy']/255.,batch['clean']/255.
 
         # -- forward --
         gpu_mem.print_peak_gpu_stats(False,"test",reset=True)
@@ -240,7 +211,7 @@ class SrNetLit(pl.LightningModule):
         # -- terminal log --
         self.log("psnr", psnr, on_step=True, on_epoch=False, batch_size=1)
         self.log("ssim", ssim, on_step=True, on_epoch=False, batch_size=1)
-        self.log("index",  int(index.item()),on_step=True,on_epoch=False,batch_size=1)
+        self.log("index", index,on_step=True,on_epoch=False,batch_size=1)
         self.log("mem_res",  mem_res, on_step=True, on_epoch=False, batch_size=1)
         self.log("mem_alloc",  mem_alloc, on_step=True, on_epoch=False, batch_size=1)
         self.gen_loger.info("te_psnr: %2.2f" % psnr)
@@ -252,7 +223,7 @@ class SrNetLit(pl.LightningModule):
         results.test_ssim = ssim
         results.test_mem_alloc = mem_alloc
         results.test_mem_res = mem_res
-        results.test_index = index.cpu().numpy().item()
+        results.test_index = index#.cpu().numpy().item()
         return results
 
 class MetricsCallback(Callback):

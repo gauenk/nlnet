@@ -38,6 +38,20 @@ from dev_basics.utils.timer import ExpTimer,TimeIt
 from dev_basics.utils.metrics import compute_psnrs,compute_ssims
 from dev_basics.utils import vid_io
 
+
+# -- extract train config --
+# from functools import partial
+from dev_basics.common import set_defaults as _set_defaults
+# from dev_basics.common import optional as _optional
+# from dev_basics.common import optional_fields,extract_config,extract_pairs
+# _fields = []
+# optional_full = partial(optional_fields,_fields)
+# extract_train_config = partial(extract_config,_fields)
+
+def set_defaults(cfg):
+    defs = {"num_workers":8}
+    _set_defaults(defs,cfg,overwrite=False)
+
 def run(cfg):
 
     # -=-=-=-=-=-=-=-=-
@@ -46,6 +60,11 @@ def run(cfg):
     #
     # -=-=-=-=-=-=-=-=-
 
+    # -- config --
+    set_defaults(cfg)
+    ModelLit,model_extract = get_lit(cfg)
+    model_cfg = model_extract(cfg)
+
     # -- set-up --
     print("PID: ",os.getpid())
     set_seed(cfg.seed)
@@ -53,10 +72,6 @@ def run(cfg):
 
     # -- create timer --
     timer = ExpTimer()
-
-    # -- optional [ugly, yes. to refactor l8er] --
-    sim_type = optional(cfg,'sim_type','g')
-    sim_device = optional(cfg,'sim_device','cuda:1')
 
     # -- init log dir --
     log_dir = root / "output/log/" / str(cfg.uuid)
@@ -74,8 +89,6 @@ def run(cfg):
         save_dir.mkdir(parents=True)
 
     # -- network --
-    ModelLit,model_extract = get_lit(cfg)
-    model_cfg = model_extract(cfg)
     # print(model_cfg)
     model = ModelLit(model_cfg,flow=cfg.flow,isize=cfg.isize,
                      batch_size=cfg.batch_size_tr,
@@ -83,7 +96,7 @@ def run(cfg):
                      scheduler=cfg.scheduler,weight_decay=cfg.weight_decay,
                      nepochs=cfg.nepochs,task=cfg.task,
                      warmup_epochs=cfg.warmup_epochs,uuid=str(cfg.uuid),
-                     sim_device=sim_device,sim_type=sim_type)
+                     sim_device=cfg.sim_device,sim_type=cfg.sim_type)
 
     # -- load dataset with testing mods isizes --
     # model.isize = None
@@ -219,7 +232,7 @@ def run(cfg):
 def get_lit(cfg):
     if cfg.arch_name == "srnet":
         lit = lightning.SrNetLit
-        extract = extract_model_config
+        extract = srnet.extract_model_config
     else:
         raise ValueError(f"Uknown arch name [{cfg.arch_name}]")
     return lit,extract
