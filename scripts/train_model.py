@@ -1,6 +1,6 @@
 """
 
-Produces weights for Table 1
+Train Search-Refine Networks
 
 """
 

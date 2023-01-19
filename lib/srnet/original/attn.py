@@ -7,6 +7,12 @@ from einops import rearrange,repeat
 # -- project deps --
 from .proj import ConvProjection,LinearProjection
 
+# -- modules --
+# from . import inds_buffer
+# from . import attn_mods
+# # from . import csa_attn
+# from . import nl_attn
+# from dev_basics.utils import clean_code
 
 class Attention(nn.Module):
     def __init__(self, dim,num_heads, token_projection='linear', qkv_bias=True, qk_scale=None, attn_drop=0., proj_drop=0.):

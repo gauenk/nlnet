@@ -1,0 +1,103 @@
+    # -- [A] approx spatial params --
+    # (i) exact search with large stride0, stride0_l
+    # (ii) upsampling non-local indices to match smaller stride0
+
+    stride0_ap
+
+    # -- [B] approx temporal params --
+    # (i) exact search over smaller "wt" region, wt_ap
+    # (ii) refine over the next "wt-wt_s" frames
+    #      using the top-K indices (k_t) offset with
+    #      optical flow at those locations
+
+    wt_ap
+    k_t
+    ws_ap
+
+    # -- [C] combined --
+    # (i) exact search over large stride0, stride0_l, and smaller wt, wt_s
+    # (ii) upsampling non-local indices to match smaller stride0
+    # (iii) refine over the next "wt_e" using locations from top-K=k_t
+    #       indices offset at those locations
+
+    stride0_l
+    wt_ap
+    k_ap
+    ws_ap
+
+    # -- [Approximate Temporal Search] Questions --
+    # -> old: R x 2*(wt+1) x ws^2
+    # -> curr: R x ws^2 + R x 2*wt x K_ap x ws_r^2
+    # -> benefit only if: |K_ap x ws_r^2| << ws^2
+    #                      K_ap << (ws/ws_r)^2,
+    #    say (21/3)^2 = 49 so K_ap = 5
+    #    say (27/3)^2 = 81 so K_ap = 8
+    # -> How to remove duplicates for [Approximate Temporal Search]?
+    #    -> [NA] Post-Process: check indices and remove duplicates before top-K
+    #       -> require checking O(k_ap*ws_ap^2) comparisons
+    #       -> uses repeated compute.
+    #       -> requires expansing k_ap, so this is removed!
+    #    -> Pick-One: check overlapping (indices,ws_ap)
+    #                 and keep non-overlapping subset (indices',ws_ap)
+    #       -> requires O(k_ap) l1 difference values
+    #       -> no repeat compute
+    #       -> will miss good patches
+    #    -> Encasing: check overlapping (indices,ws_ap)
+    #                 and keep non-overlapping subset
+    #                 and expand the search radius to keep
+    #                 dropped values search space (indidices',ws_ap')
+    #       -> requires O(S) l1 difference values
+    #       -> no repeat compute
+    #       -> will keep good patches
+    #       -> requires variable sized search spaces (ws_ap')
+    #          -> large (ws_ap') can be split into blocks
+    # -> Can we compute the search indices with flow offsets and use them eff?
+    #    -> Given tensor for size (S x K)
+    #       -> Storing the indices requires (S x K x 2*wt)
+    #    -> Suspect accumuating offsets is slow
+    #       -> Can we pre-compute this? Yes with (T,T-1,2,H,W) storage.
+    #       -> We utilize this is the "full" search too?
+    #          -> yes we can. this experiment belongs in the extension
+    #             of the previous paper to a journal.
+    #          -> the journal paper extension can also include sparse flow
+    #             & more training details & __streaming__ (see below) ?
+    #          -> to do this, we need to re-index the c++ code.
+    #    -> This approximate temporal search may not be necessary.
+    #       Keep on only layer refinement.
+    # -> We do need a "streaming" version, where for (T-L,..,T,..,T+L)
+    #    we have (T-L,...,T) computed and we want to compute (T+1,...,T+L).
+    #    -> Using parameters for "full":
+    #        -> This might belong in the previous paper's journal extension
+    #           -> temporal chunking + temporal overlap + attention offset
+    #           -> It must be in this paper because we re-use previously computed
+    #              non-local values (dists,inds) for the next batch.
+    #              That's new in this paper.
+    #        -> This requires forward-passing each frame twice.
+    #    -> Using previous state:
+    #        -> This doesn't
+    # -> For streaming: the thing to do is decouple the _search_ from the
+    #    feature maps within the videos being processed.
+    #    -> So how do we search across time?
+    #       How do we search across time without the feature map?
+    #       Buffered, yes? But then we only search backward.
+
+    # -- [Layer Refinement] Questions --
+    # -> How to remove duplicates for [Layer Refinement]?
+    #    -> Post-Process: check indices and remove duplicates before top-K
+    #       -> require checking O(k_r*ws_ap^2) comparisons
+    #       -> uses repeated compute.
+    #    -> Pick-One: check overlapping (indices,ws_ap)
+    #                 and keep non-overlapping subset (indices',ws_ap)
+    #       -> requires O(k_r) l1 difference values
+    #       -> no repeat compute
+    #       -> will miss good patches
+    #    -> Encasing: check overlapping (indices,ws_ap)
+    #                 and keep non-overlapping subset
+    #                 and expand the search radius to keep
+    #                 dropped values search space (indidices',ws_ap')
+    #       -> requires O(k_r) l1 difference values
+    #       -> no repeat compute
+    #       -> will keep good patches
+    #       -> requires variable sized search spaces (ws_ap')
+    #          -> large (ws_ap') can be split into blocks
+

@@ -14,11 +14,17 @@ from dev_basics import flow
 from .proj import ConvQKV
 
 # -- local --
-from .state import update_state,run_state_search
+# from .state import update_state,run_state_search
 
 # -- dnls --
 import dnls
 
+# -- modules --
+from . import inds_buffer
+from . import attn_mods
+from dev_basics.utils import clean_code
+
+@clean_code.add_methods_from(attn_mods)
 class NonLocalAttention(nn.Module):
     def __init__(self, dim_mult, attn_cfg, search_cfg):
 
@@ -162,114 +168,6 @@ class NonLocalAttention(nn.Module):
             dists,inds = run_state_search(q_vid,qstart,ntotal,k_vid,state)
             update_state(state,dists,inds)
         return dists,inds
-
-    def init_search(self,search_cfg):
-        stype = search_cfg.search_type
-        if "dnls" in stype:
-            search = self.init_dnls(search_cfg)
-        else:
-            raise ValueError(f"Uknown search function [{stype}]")
-        return search
-
-    def init_dnls(self,cfg):
-
-        # -- unpack params --
-        k       = cfg.k_s
-        if k == 0: k = -1
-        ps      = cfg.ps
-        pt      = cfg.pt
-        ws      = cfg.ws
-        wt      = cfg.wt
-        dil     = cfg.dil
-        stride0 = cfg.stride0
-        stride1 = cfg.stride1
-        nbwd    = cfg.nbwd
-        rbwd    = cfg.rbwd
-        exact   = cfg.exact
-        nheads  = cfg.nheads
-        # print("k,ps,ws,wt: ",k,ps,ws,wt)
-        # print(rbwd,nbwd)
-
-        # -- fixed --
-        fflow,bflow = None,None
-        use_k = k > 0
-        reflect_bounds = True
-        use_search_abs = False
-        only_full = False
-        use_adj = False
-        full_ws = True
-        stype = "prod_with_heads"
-
-        # -- init --
-        search = dnls.search.init(stype,fflow, bflow, k,
-                                  ps, pt, ws, wt, nheads,
-                                  chnls=-1,dilation=dil,
-                                  stride0=stride0,stride1=stride1,
-                                  reflect_bounds=reflect_bounds,
-                                  use_k=use_k,use_adj=use_adj,
-                                  search_abs=use_search_abs,full_ws=full_ws,
-                                  h0_off=0,w0_off=0,h1_off=0,w1_off=0,
-                                  exact=exact,nbwd=nbwd,rbwd=rbwd)
-        return search
-
-    def init_nat(self):
-
-        # -- unpack params --
-        k       = self.k_s
-        if k == 0: k = -1
-        ps      = self.ps
-        pt      = self.pt
-        ws      = self.ws
-        wt      = self.wt
-        dil     = self.dil
-        stride0 = self.stride0
-        stride1 = self.stride1
-        nbwd    = self.nbwd
-        rbwd    = self.rbwd
-        exact   = self.exact
-        nheads  = self.nheads
-
-        # -- fixed --
-        use_k = k > 0
-        reflect_bounds = True
-        use_search_abs = False
-        only_full = False
-        use_adj = False
-        full_ws = True
-        stype = "prod_with_heads"
-
-        # -- init --
-        search = nat
-
-        return search
-
-    def init_wpsum(self,cfg):
-
-        # -- unpack params --
-        ps      = cfg.ps
-        pt      = cfg.pt
-        dil     = cfg.dil
-
-        # -- fixed --
-        exact = False
-        reflect_bounds = True
-
-        # -- init --
-        wpsum = dnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=0, w_off=0,
-                                                    dilation=dil,
-                                                    reflect_bounds=reflect_bounds,
-                                                    adj=0, exact=exact)
-        return wpsum
-
-    def init_fold(self,vshape,device):
-        dil     = self.search_cfg.dil
-        stride0 = self.search_cfg.stride0
-        only_full = False
-        reflect_bounds = True
-        fold = dnls.iFoldz(vshape,None,stride=stride0,dilation=dil,
-                           adj=0,only_full=only_full,
-                           use_reflect=reflect_bounds,device=device)
-        return fold
 
     def extra_repr(self) -> str:
         str_repr = "Attention: \n" + str(self.attn_cfg) + "\n"*5
