@@ -23,7 +23,7 @@ from ..utils.model_utils import apply_freeze
 class SrNet(nn.Module):
 
     def __init__(self, arch_cfg, block_cfg, attn_cfg,
-                 search_cfg, up_cfg, down_cfg):
+                 search_cfg, normz_cfg, agg_cfg, up_cfg, down_cfg):
         super().__init__()
 
         # -- init --
@@ -55,9 +55,13 @@ class SrNet(nn.Module):
             block_cfg_l = block_cfg[l_enc]
             attn_cfg_l = attn_cfg[l_enc]
             search_cfg_l = search_cfg[l_enc]
+            normz_cfg_l = normz_cfg[l_enc]
+            agg_cfg_l = agg_cfg[l_enc]
             down_cfg_l = down_cfg[l_enc]
             block_cfg_l.type = "enc"
-            enc_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l)
+            attn_cfg_l.type = "enc"
+            enc_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l,
+                                       normz_cfg_l,agg_cfg_l)
             down_layer = Downsample(down_cfg_l.in_dim,down_cfg_l.out_dim)
             setattr(self,"encoderlayer_%d" % l_enc,enc_layer)
             setattr(self,"dowsample_%d" % l_enc,down_layer)
@@ -71,6 +75,7 @@ class SrNet(nn.Module):
         block_cfg_l = block_cfg[num_encs]
         block_cfg_l.type = "conv"
         attn_cfg_l = attn_cfg[num_encs]
+        attn_cfg_l.type = "conv"
         search_cfg_l = search_cfg[num_encs]
         setattr(self,"conv",BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l))
 
@@ -82,11 +87,15 @@ class SrNet(nn.Module):
             block_cfg_l = block_cfg[l_dec]
             attn_cfg_l = attn_cfg[l_dec]
             search_cfg_l = search_cfg[l_dec]
+            normz_cfg_l = normz_cfg[l_dec]
+            agg_cfg_l = agg_cfg[l_dec]
             up_cfg_l = up_cfg[l_dec-(num_encs+1)]
             # up_cfg_l = up_cfg[l_dec]
             block_cfg_l.type = "dec"
+            attn_cfg_l.type = "dec"
             up_layer = Upsample(up_cfg_l.in_dim,up_cfg_l.out_dim)
-            dec_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l)
+            dec_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l,
+                                       normz_cfg_l,agg_cfg_l)
             setattr(self,"upsample_%d" % l_dec,up_layer)
             setattr(self,"decoderlayer_%d" % l_dec,dec_layer)
 

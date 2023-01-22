@@ -12,11 +12,11 @@ from .mlps import FastLeFF,LeFF,Mlp
 from .nl_attn import NonLocalAttention
 
 class BasicBlockList(nn.Module):
-    def __init__(self, block_cfg, attn_cfg, search_cfg):
+    def __init__(self, block_cfg, attn_cfg, search_cfg, normz_cfg, agg_cfg):
         super().__init__()
         self.block_cfg = block_cfg
         self.blocks = nn.ModuleList([
-            BasicBlock(block_cfg,attn_cfg,search_cfg)
+            BasicBlock(block_cfg,attn_cfg,search_cfg,normz_cfg,agg_cfg)
             for _ in range(block_cfg.depth)
         ])
 
@@ -36,7 +36,7 @@ class BasicBlockList(nn.Module):
 
 class BasicBlock(nn.Module):
 
-    def __init__(self, block_cfg, attn_cfg, search_cfg):
+    def __init__(self, block_cfg, attn_cfg, search_cfg, normz_cfg, agg_cfg):
         super().__init__()
 
         # -- unpack vars --
@@ -55,7 +55,7 @@ class BasicBlock(nn.Module):
         # -- init layer --
         self.norm1 = norm_layer(self.dim*mult)
         self.attn_mode = attn_cfg.attn_mode
-        self.attn = NonLocalAttention(mult,attn_cfg,search_cfg)
+        self.attn = NonLocalAttention(mult,attn_cfg,search_cfg,normz_cfg,agg_cfg)
         self.drop_path = DropPath(dpath) if dpath > 0. else nn.Identity()
         self.norm2 = norm_layer(self.dim*mult)
         self.mlp = init_mlp(self.block_mlp,self.mlp_ratio,

@@ -9,14 +9,18 @@ from easydict import EasyDict as edict
 from .net import SrNet
 from .scaling import Downsample,Upsample # defaults
 
+# -- search/agg --
+import ..search
+import ..normz
+import ..agg
+
 # -- io --
 from ..utils import model_io
 
 # -- extract config --
 from functools import partial
 from dev_basics.common import optional as _optional
-from dev_basics.common import optional_fields
-from dev_basics.common import set_defaults
+from dev_basics.common import optional_fields,set_defaults
 from dev_basics.common import extract_config,extract_pairs,cfg2lists
 _fields = [] # fields for model io; populated using this code section
 optional_full = partial(optional_fields,_fields)
@@ -38,6 +42,8 @@ def load_model(cfg):
     block_cfg = extract_block_config(cfg,optional)
     attn_cfg = extract_attn_config(cfg,optional,len(block_cfg))
     search_cfg = extract_search_config(cfg,optional,len(block_cfg))
+    normz_cfg = extract_normz_config(cfg,optional,len(block_cfg))
+    agg_cfg = extract_agg_config(cfg,optional,len(block_cfg))
     if init: return
 
     # -- create up/down sample --
@@ -45,7 +51,8 @@ def load_model(cfg):
     down_cfg = create_downsample_cfg(block_cfg)
 
     # -- init model --
-    model = SrNet(arch_cfg,block_cfg,attn_cfg,search_cfg,up_cfg,down_cfg)
+    model = SrNet(arch_cfg,block_cfg,attn_cfg,search_cfg,
+                  normz_cfg,agg_cfg,up_cfg,down_cfg)
 
     # -- load model --
     load_pretrained(model,io_cfg)
@@ -121,31 +128,59 @@ def extract_io_config(_cfg,optional):
     return extract_pairs(pairs,_cfg,optional)
 
 def extract_search_config(_cfg,optional,nblocks):
-    pairs = {"k_s":100,"k_a":100,
-             "ws":21,"ws_r":3,
-             "ps":7,"pt":1,"wt":0,"dil":1,
+
+    # -- defaults --
+    pairs = {"k_s":100,"ws":21,"ws_r":3,
+             "ps":7,"pt":1,"wt":0,
              "stride0":4,"stride1":1,"bs":-1,
              "rbwd":False,"nbwd":1,"exact":False,
              "reflect_bounds":False,
              "refine_inds":False,
              "dilation":1,"return_inds":False,
              "search_type":"dnls_prod","nheads":None,
-             "use_flow":True,
+             "use_flow":True,"search_name":"exact",
     }
+    cfg = extract_pairs(pairs,_cfg,optional)
+    cfg = search.extract_search_config(cfg)
 
     # -- set shared defaults --
     defs = get_defs()
     set_defaults(defs,pairs)
 
     # -- extract --
-    return cfg2lists(extract_pairs(pairs,_cfg,optional),nblocks)
+    return cfg2lists(cfg,nblocks)
+
+def extract_normz_config(_cfg,optional,nblocks):
+
+    # -- defaults --
+    pairs = {"k_n":100,
+             "normz_name":"softmax",
+             "scale":10,
+             "normz_drop_rate":0.1}
+    cfg = extract_pairs(pairs,_cfg,optional)
+    cfg = normz.extract_normz_config(cfg)
+
+    # -- extract --
+    return cfg2lists(cfg,nblocks)
+
+def extract_agg_config(_cfg,optional,nblocks):
+
+    # -- defaults --
+    pairs = {"k_a":100,"ws":21,"ws_r":3,
+             "stride0":4,"stride1":1,
+             "agg_name":"wpsum"}
+    cfg = extract_pairs(pairs,_cfg,optional)
+    cfg = agg.extract_agg_config(cfg)
+
+    # -- extract --
+    return cfg2lists(cfg,nblocks)
 
 def extract_attn_config(_cfg,optional,nblocks):
-    pairs = {"qk_frac":1.,"qkv_bias":True,"scale":10.,
-             "token_mlp":'leff',"embed_dim":None,"attn_mode":"default",
-             "nheads":None,"token_projection":'linear',
-             "drop_rate_attn":0.,"drop_rate_proj":0.}
-
+    pairs = {"qk_frac":1.,"qkv_bias":True,
+             "token_mlp":'leff',"embed_dim":None,
+             "attn_mode":"default","nheads":None,
+             "token_projection":'linear',
+             "drop_rate_proj":0.}
     # -- set shared defaults --
     defs = get_defs()
     set_defaults(defs,pairs)

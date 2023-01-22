@@ -96,25 +96,6 @@ def init_refine(self,k=100,ps=7,pt=0,ws=21,ws_r=3,wt=0,
     return search
 
 @register_method
-def init_wpsum(self,cfg):
-
-    # -- unpack params --
-    ps      = cfg.ps
-    pt      = cfg.pt
-    dil     = cfg.dil
-
-    # -- fixed --
-    exact = False
-    reflect_bounds = True
-
-    # -- init --
-    wpsum = dnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=0, w_off=0,
-                                                dilation=dil,
-                                                reflect_bounds=reflect_bounds,
-                                                adj=0, exact=exact)
-    return wpsum
-
-@register_method
 def init_fold(self,vshape,device):
     dil     = self.search_cfg.dil
     stride0 = self.search_cfg.stride0
@@ -125,3 +106,30 @@ def init_fold(self,vshape,device):
                        use_reflect=reflect_bounds,device=device)
     return fold
 
+
+@register_method
+def run_fold(self,patches,vshape):
+
+    # -- init folding --
+    B,ps = vshape[0],self.search_cfg.ps
+    fold = self.init_fold(vshape,patches.device)
+
+    # -- reshape for folding --
+    shape_str = '(b o ph pw) n c -> b (o n) 1 1 c ph pw'
+    patches = rearrange(patches,shape_str,b=B,ph=ps,pw=ps)
+    patches = patches.contiguous()
+
+    # -- fold --
+    fold(patches,0)
+
+    # -- unpack --
+    vid = fold.vid / fold.zvid
+
+    # -- debug --
+    any_nan = th.any(th.isnan(vid))
+    if any_nan:
+        any_fold_nan = th.any(th.isnan(fold.vid))
+        any_zero = th.any(th.abs(fold.zvid)<1e-10)
+        print("found a nan!: ",any_nan,any_zero,any_fold_nan)
+        exit(0)
+    return vid

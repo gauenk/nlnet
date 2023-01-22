@@ -6,8 +6,16 @@ from . import lightning
 from .original import extract_model_config
 
 # -- api for searching --
-# from . import search
-# from .search import get_search,extract_search_config
+from . import search
+from .search import init_search,extract_search_config
+
+# -- api for normalization --
+from . import normz
+from .normz import init_normz,extract_normz_config
+
+# -- api for aggregation --
+from . import agg
+from .agg import init_agg,extract_agg_config
 
 # -- [dev] api for train/test --
 from . import train_model
