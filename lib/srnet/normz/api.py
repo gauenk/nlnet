@@ -8,15 +8,10 @@
 # -- local modules --
 from . import softmax
 
-# -- config extraction --
-from functools import partial
-from dev_basics.common import optional as _optional
-from dev_basics.common import optional_fields,set_defaults
-from dev_basics.common import extract_config,extract_pairs,cfg2lists
-_fields = [] # fields for model io; populated using this code section
-optional_full = partial(optional_fields,_fields)
-extract_agg_config = partial(extract_config,_fields) # all the aggregate fields
-
+# -- configs --
+from dev_basics.configs import ExtractConfig
+econfig = ExtractConfig(__file__) # init static variable
+extract_config = econfig.extract_config # rename extraction
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 #
@@ -24,18 +19,19 @@ extract_agg_config = partial(extract_config,_fields) # all the aggregate fields
 #
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+@econfig.set_init
 def init_normz(cfg):
 
     # -- unpack --
-    __init = _optional(cfg,"__init",False)
-    cfg = extract_agg_config(cfg,optional)
-    if __init == True: return
+    cfgs = econfig({"normz":normz_pairs()})
+    if econfig.is_init == True: return
+    cfg = cfgs.normz
 
     # -- menu --
     modules = {"softmax":softmax}
 
     # -- init --
-    mod = modules[cfg.agg_name]
+    mod = modules[cfg.normz_name]
     fxn = getattr(mod,'init')(cfg)
 
     # -- return --
@@ -44,7 +40,7 @@ def init_normz(cfg):
 def init(cfg):
     return init_normz(cfg)
 
-def extract_normz_config(cfg,optional):
+def normz_pairs(cfg,optional):
     pairs = {"scale":10,
              "normz_name":"softmax",
              "k_n":100,

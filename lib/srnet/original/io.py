@@ -17,42 +17,39 @@ import ..agg
 # -- io --
 from ..utils import model_io
 
-# -- extract config --
-from functools import partial
-from dev_basics.common import optional as _optional
-from dev_basics.common import optional_fields,set_defaults
-from dev_basics.common import extract_config,extract_pairs,cfg2lists
-_fields = [] # fields for model io; populated using this code section
-optional_full = partial(optional_fields,_fields)
-extract_model_config = partial(extract_config,_fields) # all the aggregate fields
+# -- configs --
+from dev_basics.configs import ExtractConfig
+econfig = ExtractConfig(__file__) # init static variable
+extract_config = econfig.extract_config # rename extraction
 
 # -- load the model --
+@econfig.set_init
 def load_model(cfg):
 
-    # -- allows for all keys to be aggregated at init --
-    init = _optional(cfg,'__init',False) # purposefully weird key
-    optional = partial(optional_full,init)
-
     # -- config --
-    init = _optional(cfg,'__init',False) # purposefully weird key
-    optional = partial(optional_full,init)
-    device = optional(cfg,'device','cuda:0')
-    io_cfg = extract_io_config(cfg,optional)
-    arch_cfg = extract_arch_config(cfg,optional)
-    block_cfg = extract_block_config(cfg,optional)
-    attn_cfg = extract_attn_config(cfg,optional,len(block_cfg))
-    search_cfg = extract_search_config(cfg,optional,len(block_cfg))
-    normz_cfg = extract_normz_config(cfg,optional,len(block_cfg))
-    agg_cfg = extract_agg_config(cfg,optional,len(block_cfg))
-    if init: return
+    econfig.set_cfg(cfg)
+    pairs = {"io":io_pairs(),
+             "search":search.extract_config(cfg),
+             "normz":normz.extract_config(cfg),
+             "agg":normz.extract_config(cfg),
+             "block":block_pairs(),
+             "arch":arch_pairs()}
+    device = econfig.optional("device","cuda:0")
+    cfgs = econfig.extract(pairs)
+    if econfig.is_init: return
+
+    # -- list of configs --
+    fields = ["attn","search","normz","agg","block"]
+    nblocks = cfgs.arch.nblocks
+    econfig.cfgs_to_lists(cfgs,fields,nblocks)
 
     # -- create up/down sample --
-    up_cfg = create_upsample_cfg(block_cfg)
-    down_cfg = create_downsample_cfg(block_cfg)
+    cfgs.up = create_upsample_cfg(cfgs.block)
+    cfgs.down = create_downsample_cfg(cfgs.block)
 
     # -- init model --
-    model = SrNet(arch_cfg,block_cfg,attn_cfg,search_cfg,
-                  normz_cfg,agg_cfg,up_cfg,down_cfg)
+    model = SrNet(cfgs.arch,cfgs.block,cfgs.attn,cfgs.search,
+                  cfgs.normz,cfgs.agg,cfgs.up,cfgs.down)
 
     # -- load model --
     load_pretrained(model,io_cfg)
@@ -117,78 +114,24 @@ def get_defs():
 
     return defs
 
-def extract_io_config(_cfg,optional):
-    sigma = optional(_cfg,"sigma",0.)
+def io_pairs():
     base = Path("weights/checkpoints/")
     pretrained_path = base / "model/model_best.pt"
     pairs = {"pretrained_load":False,
              "pretrained_path":str(pretrained_path),
              "pretrained_type":"lit",
              "pretrained_root":"."}
-    return extract_pairs(pairs,_cfg,optional)
+    return pairs
 
-def extract_search_config(_cfg,optional,nblocks):
-
-    # -- defaults --
-    pairs = {"k_s":100,"ws":21,"ws_r":3,
-             "ps":7,"pt":1,"wt":0,
-             "stride0":4,"stride1":1,"bs":-1,
-             "rbwd":False,"nbwd":1,"exact":False,
-             "reflect_bounds":False,
-             "refine_inds":False,
-             "dilation":1,"return_inds":False,
-             "search_type":"dnls_prod","nheads":None,
-             "use_flow":True,"search_name":"exact",
-    }
-    cfg = extract_pairs(pairs,_cfg,optional)
-    cfg = search.extract_search_config(cfg)
-
-    # -- set shared defaults --
-    defs = get_defs()
-    set_defaults(defs,pairs)
-
-    # -- extract --
-    return cfg2lists(cfg,nblocks)
-
-def extract_normz_config(_cfg,optional,nblocks):
-
-    # -- defaults --
-    pairs = {"k_n":100,
-             "normz_name":"softmax",
-             "scale":10,
-             "normz_drop_rate":0.1}
-    cfg = extract_pairs(pairs,_cfg,optional)
-    cfg = normz.extract_normz_config(cfg)
-
-    # -- extract --
-    return cfg2lists(cfg,nblocks)
-
-def extract_agg_config(_cfg,optional,nblocks):
-
-    # -- defaults --
-    pairs = {"k_a":100,"ws":21,"ws_r":3,
-             "stride0":4,"stride1":1,
-             "agg_name":"wpsum"}
-    cfg = extract_pairs(pairs,_cfg,optional)
-    cfg = agg.extract_agg_config(cfg)
-
-    # -- extract --
-    return cfg2lists(cfg,nblocks)
-
-def extract_attn_config(_cfg,optional,nblocks):
+def attn_pairs():
     pairs = {"qk_frac":1.,"qkv_bias":True,
              "token_mlp":'leff',"embed_dim":None,
              "attn_mode":"default","nheads":None,
              "token_projection":'linear',
              "drop_rate_proj":0.}
-    # -- set shared defaults --
-    defs = get_defs()
-    set_defaults(defs,pairs)
+    return pairs
 
-    # -- extract --
-    return cfg2lists(extract_pairs(pairs,_cfg,optional),nblocks)
-
-def extract_block_config(_cfg,optional):
+def block_pairs():
     shape = {"depth":None,
              "nheads":None,
              "nblocks":None,"freeze":False}
@@ -197,25 +140,13 @@ def extract_block_config(_cfg,optional):
                 "drop_rate_mlp":0.,"drop_rate_path":0.1}
     pairs = shape | training
 
-    # -- set shared defaults --
-    defs = get_defs()
-    set_defaults(defs,pairs)
+    return pairs
 
-    # -- extract --
-    return cfg2lists(extract_pairs(pairs,_cfg,optional),pairs['nblocks'])
-
-def extract_arch_config(_cfg,optional):
+def arch_pairs():
     pairs = {"in_chans":3,"dd_in":3,
              "dowsample":Downsample, "upsample":Upsample,
              "embed_dim":None,
              "input_proj_depth":1,
              "output_proj_depth":1,"drop_rate_pos":0.}
-    # -- set shared defaults --
-    defs = get_defs()
-    set_defaults(defs,pairs)
+    return pairs
 
-    # -- extract --
-    return extract_pairs(pairs,_cfg,optional)
-
-# -- run to populate "_fields" --
-load_model(edict({"__init":True}))
