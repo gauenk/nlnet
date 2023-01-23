@@ -4,6 +4,10 @@ from copy import deepcopy as dcopy
 from easydict import EasyDict as edict
 from ..utils import optional
 
+# -- torch --
+import torch as th
+from einops import rearrange
+
 # -- clean code --
 from dev_basics.utils import clean_code
 __methods__ = [] # self is a DataStore
@@ -97,8 +101,8 @@ def init_refine(self,k=100,ps=7,pt=0,ws=21,ws_r=3,wt=0,
 
 @register_method
 def init_fold(self,vshape,device):
-    dil     = self.search_cfg.dil
-    stride0 = self.search_cfg.stride0
+    dil     = self.dilation
+    stride0 = self.stride0
     only_full = False
     reflect_bounds = True
     fold = dnls.iFoldz(vshape,None,stride=stride0,dilation=dil,

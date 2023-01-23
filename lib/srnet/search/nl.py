@@ -29,21 +29,35 @@ def init_from_cfg(cfg):
     return init(cfg)
 
 def init(cfg):
-    return NLSearch(cfg.k,cfg.ps,cfg.ws,cfg.wt,cfg.nheads,cfg.stride0,cfg.stride1)
+    return NLSearch(cfg.k,cfg.ps,cfg.ws,cfg.wt,cfg.nheads,
+                    cfg.stride0,cfg.stride1,cfg.dilation,cfg.use_flow)
 
-class NLSearch():
+class NLSearch(nn.Module):
 
-    def __init__(self, k=7, ps=7, ws=8, wt=1, nheads=1, stride0=4,stride1=1):
+    def __init__(self, k=7, ps=7, ws=8, wt=1, nheads=1,
+                 stride0=4, stride1=1, dilation=1, use_flow=True):
+        super().__init__()
         self.k = k
         self.ps = ps
         self.ws = ws
+        self.wt = wt
         self.nheads = nheads
+        self.stride0 = stride0
+        self.stride1 = stride1
+        self.nheads = nheads
+        self.dilation = dilation
         self.search = get_search(k,ps,ws,wt,nheads,stride0,stride1)
+        self.use_flow = use_flow
 
-    def __call__(self,vid,**kwargs):
-        B,T,C,H,W = vid.shape
-        dists,inds = self.search(vid)
+    def forward(self,q_vid,k_vid,flows,state):
+        B,T,C,H,W = q_vid.shape
+        dists,inds = self.search(q_vid,0,-1,k_vid)
         return dists,inds
+
+    # def __call__(self,vid,**kwargs):
+    #     B,T,C,H,W = vid.shape
+    #     dists,inds = self.search(vid)
+    #     return dists,inds
 
     def set_flows(self,vid,flows,aflows):
         self.search.set_flows(flows,vid)

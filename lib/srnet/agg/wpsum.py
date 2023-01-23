@@ -7,7 +7,7 @@ def init(cfg):
     # -- unpack params --
     ps      = cfg.ps
     pt      = cfg.pt
-    dil     = cfg.dil
+    dil     = cfg.dilation
     exact = cfg.exact
     reflect_bounds = cfg.reflect_bounds
 
@@ -17,18 +17,26 @@ def init(cfg):
                                                 reflect_bounds=reflect_bounds,
                                                 adj=0, exact=exact)
 
-    return WpSumAgg(cfg.k_a,wpsum)
+    return WpSumAgg(cfg.k_a,cfg.stride0,wpsum)
 
 class WpSumAgg():
 
-    def __init__(self,k_a,wpsum_fxn):
-        self.k_a = self.k_a
+    def __init__(self,k,stride0,wpsum):
+        self.k = k
+        self.stride0 = stride0
+        self.wpsum = wpsum
 
     def __call__(self,vid,dists,inds):
 
+        # -- compute total --
+        B,T,C,H,W = vid.shape
+        nH = (H-1)//self.stride0+1
+        nW = (W-1)//self.stride0+1
+        ntotal = T * nH * nW
+
         # -- limiting --
-        dists = dists[...,:self.k_a].contiguous()
-        inds = inds[...,:self.k_a].contiguous()
+        dists = dists[...,:self.k].contiguous()
+        inds = inds[...,:self.k].contiguous()
 
         # -- aggregate --
         patches = self.wpsum(vid,dists,inds)

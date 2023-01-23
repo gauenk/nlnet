@@ -9,10 +9,10 @@ from easydict import EasyDict as edict
 from .net import SrNet
 from .scaling import Downsample,Upsample # defaults
 
-# -- search/agg --
-import ..search
-import ..normz
-import ..agg
+# -- search/normalize/aggregate --
+from .. import search
+from .. import normz
+from .. import agg
 
 # -- io --
 from ..utils import model_io
@@ -29,12 +29,13 @@ def load_model(cfg):
     # -- config --
     econfig.set_cfg(cfg)
     pairs = {"io":io_pairs(),
+             "attn":attn_pairs(),
              "search":search.extract_config(cfg),
              "normz":normz.extract_config(cfg),
              "agg":normz.extract_config(cfg),
              "block":block_pairs(),
              "arch":arch_pairs()}
-    device = econfig.optional("device","cuda:0")
+    device = econfig.optional(cfg,"device","cuda:0")
     cfgs = econfig.extract(pairs)
     if econfig.is_init: return
 
@@ -52,7 +53,7 @@ def load_model(cfg):
                   cfgs.normz,cfgs.agg,cfgs.up,cfgs.down)
 
     # -- load model --
-    load_pretrained(model,io_cfg)
+    load_pretrained(model,cfgs.io)
 
     # -- device --
     model = model.to(device)
@@ -129,7 +130,7 @@ def attn_pairs():
              "attn_mode":"default","nheads":None,
              "token_projection":'linear',
              "drop_rate_proj":0.}
-    return pairs
+    return pairs | get_defs()
 
 def block_pairs():
     shape = {"depth":None,
@@ -138,15 +139,14 @@ def block_pairs():
     training = {"mlp_ratio":4.,"embed_dim":None,
                 "block_mlp":"mlp","norm_layer":"LayerNorm",
                 "drop_rate_mlp":0.,"drop_rate_path":0.1}
-    pairs = shape | training
+    pairs = shape | training | get_defs()
 
     return pairs
 
 def arch_pairs():
     pairs = {"in_chans":3,"dd_in":3,
-             "dowsample":Downsample, "upsample":Upsample,
-             "embed_dim":None,
-             "input_proj_depth":1,
+             "dowsample":"Downsample", "upsample":"Upsample",
+             "embed_dim":None,"input_proj_depth":1,
              "output_proj_depth":1,"drop_rate_pos":0.}
-    return pairs
+    return pairs  | get_defs()
 

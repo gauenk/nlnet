@@ -26,6 +26,11 @@ import cache_io
 # -- network --
 import srnet
 
+# -- configs --
+from dev_basics.configs import ExtractConfig
+econfig = ExtractConfig(__file__)
+extract_config = econfig.extract_config
+
 # -- misc --
 from dev_basics.utils.misc import rslice,write_pickle,read_pickle
 from dev_basics.utils.metrics import compute_psnrs,compute_ssims
@@ -33,10 +38,11 @@ from dev_basics.utils.timer import ExpTimer
 import dev_basics.utils.gpu_mem as gpu_mem
 
 # -- noise sims --
-try:
-    import stardeno
-except:
-    pass
+import importlib
+# try:
+#     import stardeno
+# except:
+#     pass
 
 # -- generic logging --
 import logging
@@ -51,37 +57,45 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.utilities.distributed import rank_zero_only
 
 
-class SrNetLit(pl.LightningModule):
+@econfig.set_init
+def init_cfg(cfg):
+    econfig.set_cfg(cfg)
+    cfgs = econfig({"lit":lit_pairs(),
+                    "sim":sim_pairs()})
+    return cfgs
 
+def lit_pairs():
+    pairs = {"batch_size":1,"flow":True,"flow_method":"cv2",
+             "isize":None,"bw":False,"lr_init":1e-3,
+             "lr_final":1e-8,"weight_decay":1e-4,
+             "nepochs":0,"task":"denoising","uuid":""}
+    return pairs
 
-    def __init__(self,model_cfg,batch_size=1,
-                 flow=True,flow_method="cv2",isize=None,bw=False,
-                 lr_init=1e-3,lr_final=1e-8,weight_decay=1e-4,nepochs=0,
-                 warmup_epochs=0,scheduler="default",
-                 task=0,uuid="",sim_type="g",sim_device="cuda:0"):
+def sim_pairs():
+    pairs = {"sim_type":"g","sim_module":"stardeno",
+             "sim_device":"cuda:0","load_fxn":"load_sim"}
+    return pairs
+
+def get_sim_model(self,cfg):
+    if cfg.sim_type == "g":
+        return None
+    elif cfg.sim_type == "stardeno":
+        module = importlib.load_module(cfg.sim_module)
+        return module.load_noise_sim(cfg.sim_device,True).to(cfg.sim_device)
+    else:
+        raise ValueError(f"Unknown sim model [{sim_type}]")
+
+class LitModel(pl.LightningModule):
+
+    def __init__(self,lit_cfg,net,sim_model):
         super().__init__()
-        self.lr_init = lr_init
-        self.lr_final = lr_final
-        self.weight_decay = weight_decay
-        self.scheduler = scheduler
-        self.nepochs = nepochs
-        self.bw = bw
-        self.net = srnet.load_model(model_cfg)
-        self.batch_size = batch_size
-        self.flow = flow
-        self.flow_method = flow_method
-        self.isize = isize
+        lit_cfg = init_cfg(lit_cfg).lit
+        for key,val in lit_cfg.items():
+            setattr(self,key,val)
+        self.net = net
+        self.sim_model = sim_model
         self.gen_loger = logging.getLogger('lightning')
         self.gen_loger.setLevel("NOTSET")
-        self.sim_model = self.get_sim_model(sim_type,sim_device)
-
-    def get_sim_model(self,sim_type,sim_device):
-        if sim_type == "g":
-            return None
-        elif sim_type == "stardeno":
-            return stardeno.load_noise_sim(sim_device,True).to(sim_device)
-        else:
-            raise ValueError(f"Unknown sim model [{sim_type}]")
 
     def forward(self,vid):
         flows = flow.orun(vid,self.flow,ftype=self.flow_method)

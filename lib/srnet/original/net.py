@@ -77,7 +77,10 @@ class SrNet(nn.Module):
         attn_cfg_l = attn_cfg[num_encs]
         attn_cfg_l.type = "conv"
         search_cfg_l = search_cfg[num_encs]
-        setattr(self,"conv",BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l))
+        normz_cfg_l = normz_cfg[num_encs]
+        agg_cfg_l = agg_cfg[num_encs]
+        setattr(self,"conv",BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l,
+                                           normz_cfg_l,agg_cfg_l))
 
         # -- decoder --
         dec_list = []

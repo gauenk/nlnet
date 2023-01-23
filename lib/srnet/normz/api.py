@@ -23,6 +23,7 @@ extract_config = econfig.extract_config # rename extraction
 def init_normz(cfg):
 
     # -- unpack --
+    econfig.set_cfg(cfg)
     cfgs = econfig({"normz":normz_pairs()})
     if econfig.is_init == True: return
     cfg = cfgs.normz
@@ -40,11 +41,10 @@ def init_normz(cfg):
 def init(cfg):
     return init_normz(cfg)
 
-def normz_pairs(cfg,optional):
+def normz_pairs():
     pairs = {"scale":10,
              "normz_name":"softmax",
              "k_n":100,
              "normz_drop_rate":0.}
-    return extract_pairs(pairs,cfg,optional)
+    return pairs
 
-init({"__init"})

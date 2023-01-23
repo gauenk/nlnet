@@ -26,6 +26,7 @@ extract_config = econfig.extract_config # rename extraction
 def init_search(cfg):
 
     # -- unpack --
+    econfig.set_cfg(cfg)
     cfgs = econfig({"search":search_pairs()})
     if econfig.is_init == True: return
     cfg = cfgs.search
@@ -35,7 +36,7 @@ def init_search(cfg):
                "refine":"refine","csa":"csa","nlp":"nlp",
                "exact":"nl","nlat":"nlat","approx":"nlat"}
     mname = modules[cfg.search_name]
-    module = importlib.import_module("."+mname)
+    module = importlib.import_module("srnet.search."+mname)
     search_fxn = getattr(module,'init')(cfg)
     return search_fxn
 
@@ -49,7 +50,8 @@ def search_pairs():
              "nheads":1,"stride0":4,"stride1":1,
              "reflect_bounds":True,"use_k":True,"use_adj":True,
              "search_abs":False,"anchor_self":False,
-             "dist_type":"l2","search_name":"nl"}
+             "dist_type":"l2","search_name":"nl","use_flow":True,
+             "dilation":1}
     return pairs
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

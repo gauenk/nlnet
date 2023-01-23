@@ -23,6 +23,7 @@ extract_config = econfig.extract_config # rename extraction
 def init_agg(cfg):
 
     # -- unpack --
+    econfig.set_cfg(cfg)
     cfgs = econfig({"agg":agg_pairs()})
     if econfig.is_init == True: return
     cfg = cfgs.agg
@@ -43,5 +44,6 @@ def init(cfg):
 def agg_pairs():
     pairs = {"ps":7,"pt":1,"dilation":1,
              "exact":False,"reflect_bounds":True,
-             "agg_name":"nl","k_a":10,"agg_name":"wpsum"}
+             "agg_name":"nl","k_a":10,"agg_name":"wpsum",
+             "stride0":4}
     return pairs

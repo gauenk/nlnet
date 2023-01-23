@@ -13,10 +13,10 @@ from dev_basics import flow
 # -- project deps --
 from .proj import ConvQKV
 
-# -- search/agg --
-import ..search
-import ..normz
-import ..agg
+# -- search/normalize/aggregate --
+from .. import search
+from .. import normz
+from .. import agg
 
 # -- local --
 # from .state import update_state,run_state_search
@@ -25,7 +25,7 @@ import ..agg
 import dnls
 
 # -- modules --
-from . import inds_buffer
+# from . import inds_buffer
 from . import attn_mods
 from dev_basics.utils import clean_code
 
@@ -40,11 +40,6 @@ class NonLocalAttention(nn.Module):
         self.dim = dim
         self.attn_cfg = attn_cfg
         self.search_cfg = search_cfg
-        self.stride0 = self.search_cfg.stride0
-        self.use_flow = self.search_cfg.use_flow
-        self.k_s = search_cfg.k_s
-        self.k_n = normz_cfg.k_n
-        self.k_a = agg_cfg.k_a
 
         # -- attn info --
         self.qkv = ConvQKV(dim,attn_cfg.nheads,
@@ -59,13 +54,20 @@ class NonLocalAttention(nn.Module):
         self.normz = normz.init(normz_cfg)
         self.agg = agg.init(agg_cfg)
 
+        # -- init vars of interest --
+        self.use_flow = self.search.use_flow
+        self.stride0 = self.search.stride0
+        self.dilation = self.search.dilation
+        self.k_s = self.search.k
+        self.k_n = self.normz.k
+        self.k_a = self.agg.k
+
     def get_qkv(self,vid):
 
         # -- compute --
         B, T, C, H, W = vid.shape
         vid = vid.view(B*T,C,H,W)
         q_vid, k_vid, v_vid = self.qkv(vid,None)
-        q_vid = q_vid * self.attn_cfg.scale
 
         # -- reshape --
         q_vid = q_vid.view(B,T,-1,H,W)
