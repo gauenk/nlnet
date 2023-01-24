@@ -6,9 +6,10 @@ from einops import rearrange
 def init(cfg):
     return SoftmaxNormalize(cfg.k_n,cfg.scale,cfg.normz_drop_rate)
 
-class SoftmaxNormalize():
+class SoftmaxNormalize(nn.Module):
 
     def __init__(self,k,scale,drop_rate=0.):
+        super().__init__()
         self.k = k
         self.scale = scale
         self.drop_rate = drop_rate

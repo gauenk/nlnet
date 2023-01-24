@@ -25,10 +25,11 @@ def main():
     cfg_file = "exps/train_model.cfg"
     exps = cache_io.get_exps(cfg_file)
     exps = [exps[0]]
+    print(exps)
     records = cache_io.run_exps(exps,train.run,
                                 name = ".cache_io/train_model",
                                 version = "v1",
-                                clear=False,skip_loop=False,
+                                clear=True,skip_loop=False,
                                 enable_dispatch="slurm")
 
     # -- summary --

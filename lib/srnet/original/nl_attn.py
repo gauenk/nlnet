@@ -2,6 +2,7 @@
 # -- torch network deps --
 import torch as th
 import torch.nn as nn
+from torch.nn.functional import unfold
 from einops import rearrange,repeat
 
 # -- extra deps --
@@ -32,7 +33,6 @@ from dev_basics.utils import clean_code
 @clean_code.add_methods_from(attn_mods)
 class NonLocalAttention(nn.Module):
     def __init__(self, dim_mult, attn_cfg, search_cfg, normz_cfg, agg_cfg):
-
         super().__init__()
 
         # -- init configs --
@@ -42,10 +42,10 @@ class NonLocalAttention(nn.Module):
         self.search_cfg = search_cfg
 
         # -- attn info --
+        self.token_projection = attn_cfg.token_projection
         self.qkv = ConvQKV(dim,attn_cfg.nheads,
                            dim_mult*attn_cfg.embed_dim,
                            attn_cfg.qk_frac,bias=attn_cfg.qkv_bias)
-        self.token_projection = attn_cfg.token_projection
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(attn_cfg.drop_rate_proj)
 
@@ -55,12 +55,13 @@ class NonLocalAttention(nn.Module):
         self.agg = agg.init(agg_cfg)
 
         # -- init vars of interest --
-        self.use_flow = self.search.use_flow
-        self.stride0 = self.search.stride0
-        self.dilation = self.search.dilation
-        self.k_s = self.search.k
-        self.k_n = self.normz.k
-        self.k_a = self.agg.k
+        self.ps = search_cfg.ps
+        self.use_flow = search_cfg.use_flow
+        self.stride0 = search_cfg.stride0
+        self.dilation = search_cfg.dilation
+        self.k_s = search_cfg.k
+        self.k_n = normz_cfg.k_n
+        self.k_a = agg_cfg.k_a
 
     def get_qkv(self,vid):
 
@@ -101,7 +102,7 @@ class NonLocalAttention(nn.Module):
         # -- update flow --
         B,T,C,H,W = vid.shape
         if self.use_flow: flows = flow.rescale_flows(flows,H,W)
-        # self.search.update_flow(vid.shape,vid.device,flows)
+        self.search.set_flows(vid,flows)
 
         # -- extract --
         q_vid,k_vid,v_vid = self.get_qkv(vid)
@@ -122,6 +123,12 @@ class NonLocalAttention(nn.Module):
         vid = self.run_fold(patches,vid.shape)
 
         return vid
+
+    def get_patches(self,vid):
+        vid = rearrange(vid,'B T C H W -> (B T) C H W')
+        patches = unfold(vid,(self.ps,self.ps))
+        patches = rearrange(patches,'b (p2 d) n -> (b n p2) 1 d',d=self.dim)
+        return patches
 
     def extra_repr(self) -> str:
         str_repr = "Attention: \n" + str(self.attn_cfg) + "\n"*5

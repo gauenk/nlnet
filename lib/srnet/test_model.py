@@ -221,7 +221,6 @@ def run(cfg):
     th.cuda.synchronize()
 
     return results
-run({"__init":True}) # populate fields
 
 def load_model(cfg):
     if cfg.arch_name == "srnet":

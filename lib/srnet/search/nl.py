@@ -46,12 +46,12 @@ class NLSearch(nn.Module):
         self.stride1 = stride1
         self.nheads = nheads
         self.dilation = dilation
-        self.search = get_search(k,ps,ws,wt,nheads,stride0,stride1)
         self.use_flow = use_flow
+        self.search = get_search(k,ps,ws,wt,nheads,stride0,stride1)
 
-    def forward(self,q_vid,k_vid,flows,state):
-        B,T,C,H,W = q_vid.shape
-        dists,inds = self.search(q_vid,0,-1,k_vid)
+    def forward(self,vid0,vid1,flows,state):
+        B,T,C,H,W = vid0.shape
+        dists,inds = self.search(vid0,0,-1,vid1)
         return dists,inds
 
     # def __call__(self,vid,**kwargs):
@@ -59,7 +59,7 @@ class NLSearch(nn.Module):
     #     dists,inds = self.search(vid)
     #     return dists,inds
 
-    def set_flows(self,vid,flows,aflows):
+    def set_flows(self,vid,flows,aflows=None):
         self.search.set_flows(flows,vid)
 
     def flops(self,B,C,H,W):

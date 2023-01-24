@@ -44,7 +44,7 @@ def init(cfg):
 def normz_pairs():
     pairs = {"scale":10,
              "normz_name":"softmax",
-             "k_n":100,
+             "k_n":10,
              "normz_drop_rate":0.}
     return pairs
 

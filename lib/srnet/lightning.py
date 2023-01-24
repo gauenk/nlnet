@@ -1,7 +1,7 @@
 
 
 # -- misc --
-import os,math,tqdm
+import os,math,tqdm,sys
 import pprint,copy
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -68,7 +68,8 @@ def lit_pairs():
     pairs = {"batch_size":1,"flow":True,"flow_method":"cv2",
              "isize":None,"bw":False,"lr_init":1e-3,
              "lr_final":1e-8,"weight_decay":1e-4,
-             "nepochs":0,"task":"denoising","uuid":""}
+             "nepochs":0,"task":"denoising","uuid":"",
+             "scheduler":"default"}
     return pairs
 
 def sim_pairs():
@@ -96,6 +97,7 @@ class LitModel(pl.LightningModule):
         self.sim_model = sim_model
         self.gen_loger = logging.getLogger('lightning')
         self.gen_loger.setLevel("NOTSET")
+        self.automatic_optimization=True
 
     def forward(self,vid):
         flows = flow.orun(vid,self.flow,ftype=self.flow_method)
@@ -119,6 +121,16 @@ class LitModel(pl.LightningModule):
             gamma = 1-math.exp(math.log(self.lr_final/self.lr_init)/self.nepochs)
             ExponentialLR = th.optim.lr_scheduler.ExponentialLR
             scheduler = ExponentialLR(optim,gamma=gamma) # (.995)^50 ~= .78
+        elif self.scheduler in ["step","steplr"]:
+            StepLR = th.optim.lr_scheduler.StepLR
+            scheduler = StepLR(optim,step_size=5,gamma=0.1)
+        elif self.scheduler in ["cos"]:
+            CosAnnLR = th.optim.lr_scheduler.CosineAnnealingLR
+            T0,Tmult = 1,1
+            scheduler = CosAnnLR(optim,T0,Tmult)
+        elif self.scheduler in ["none"]:
+            StepLR = th.optim.lr_scheduler.StepLR
+            scheduler = StepLR(optim,step_size=10**3,gamma=1.)
         else:
             raise ValueError(f"Uknown scheduler [{self.scheduler}]")
         return scheduler

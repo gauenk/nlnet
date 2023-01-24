@@ -28,15 +28,16 @@ def load_model(cfg):
 
     # -- config --
     econfig.set_cfg(cfg)
+    defs = shared_defaults(cfg)
     pairs = {"io":io_pairs(),
-             "attn":attn_pairs(),
+             "arch":arch_pairs(defs),
+             "block":block_pairs(defs),
+             "attn":attn_pairs(defs),
              "search":search.extract_config(cfg),
              "normz":normz.extract_config(cfg),
-             "agg":normz.extract_config(cfg),
-             "block":block_pairs(),
-             "arch":arch_pairs()}
+             "agg":agg.extract_config(cfg)}
     device = econfig.optional(cfg,"device","cuda:0")
-    cfgs = econfig.extract(pairs)
+    cfgs = econfig.extract_set(pairs)
     if econfig.is_init: return
 
     # -- list of configs --
@@ -92,28 +93,14 @@ def create_downsample_cfg(bcfgs):
 #     Configs for "io"
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-def get_defs():
-
-    # -- shared default values --
-    defs = edict()
-    defs.embed_dim = 9
-
-    # -- depth == 5 --
-    defs.nheads = [1,2,4]
-    defs.depth = [2,2,2]
-    defs.nblocks = 5
-
-    # -- depth == 7 --
-    # defs.nheads = [1,2,4,8]
-    # defs.depth = [2,2,2,2]
-    # defs.nblocks = 7
-
-    # -- depth == 9 --
-    # defs.nheads = [1,2,4,8,16]
-    # defs.depth = [2,2,2,2,2]
-    # defs.nblocks = 7
-
-    return defs
+def shared_defaults(_cfg):
+    pairs = {"embed_dim":1,
+             "nheads":[1,1,1],
+             "depth":[1,1,1],
+             "nblocks":5}
+    cfg = econfig.extract_pairs(pairs,_cfg)
+    cfg.nblocks = 2*(len(cfg.depth)-1)+1
+    return cfg
 
 def io_pairs():
     base = Path("weights/checkpoints/")
@@ -124,29 +111,28 @@ def io_pairs():
              "pretrained_root":"."}
     return pairs
 
-def attn_pairs():
+def attn_pairs(defs):
     pairs = {"qk_frac":1.,"qkv_bias":True,
              "token_mlp":'leff',"embed_dim":None,
              "attn_mode":"default","nheads":None,
              "token_projection":'linear',
              "drop_rate_proj":0.}
-    return pairs | get_defs()
+    return pairs | defs
 
-def block_pairs():
-    shape = {"depth":None,
-             "nheads":None,
+def block_pairs(defs):
+    shape = {"depth":None,"nheads":None,
              "nblocks":None,"freeze":False}
     training = {"mlp_ratio":4.,"embed_dim":None,
                 "block_mlp":"mlp","norm_layer":"LayerNorm",
                 "drop_rate_mlp":0.,"drop_rate_path":0.1}
-    pairs = shape | training | get_defs()
+    pairs = shape | training | defs
 
     return pairs
 
-def arch_pairs():
+def arch_pairs(defs):
     pairs = {"in_chans":3,"dd_in":3,
              "dowsample":"Downsample", "upsample":"Upsample",
              "embed_dim":None,"input_proj_depth":1,
              "output_proj_depth":1,"drop_rate_pos":0.}
-    return pairs  | get_defs()
+    return pairs  | defs
 
