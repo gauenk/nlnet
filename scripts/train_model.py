@@ -11,7 +11,6 @@ import os
 import cache_io
 
 # -- network configs --
-# from srnet import train_model
 from dev_basics.trte import train
 
 def main():

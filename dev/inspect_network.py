@@ -4,7 +4,7 @@ Creating/Checking the network
 
 """
 
-import srnet
+import nlnet
 import torch as th
 from easydict import EasyDict as edict
 

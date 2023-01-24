@@ -15,18 +15,18 @@ import glob
 
 
 # -- file paths --
-long_description="""SRNET: Python implementation of SRNET"""
+long_description="""NLNET: Python implementation of NLNET"""
 setup(
-    name='srnet',
+    name='nlnet',
     version='100.100.100',
-    description='A python implementation of SRNET',
+    description='A python implementation of NLNET',
     long_description=long_description,
-    url='https://github.com/gauenk/cola_net',
+    url='https://github.com/gauenk/nlnet',
     author='Kent Gauen',
     author_email='gauenk@purdue.edu',
     license='MIT',
     keywords='burst denoising, non-local search, video denoising, neural network',
-    install_requires=['numpy','torch','flake8'],
+    install_requires=[],
     package_dir={"": "lib"},
     packages=find_packages("lib"),
 )
