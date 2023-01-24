@@ -139,3 +139,15 @@ def arch_pairs(defs):
     }
     return pairs  | defs
 
+
+def refinement_menu(rtype,nblocks):
+    if rtype == "full":
+        return [False,]*nblocks,"full"
+    elif rtype == "first":
+        return [True,]*nblocks,"first"
+    elif rtype == "one":
+        return [True,]*nblocks,"one"
+    elif rtype == "nth":
+        return [True,]*nblocks,"nth"
+    else:
+        raise ValeError("Uknown refinement type in menu [%s]" % rtype)
