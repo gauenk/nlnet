@@ -18,7 +18,7 @@ from timm.models.layers import trunc_normal_
 from .basic import BasicBlockList
 from .scaling import Downsample,Upsample
 from .proj import InputProj,InputProjSeq,OutputProj,OutputProjSeq
-from ..utils.model_utils import apply_freeze
+from ..utils.model_utils import apply_freeze,cfgs_slice
 
 # -- benchmarking --
 from ..utils.timer import ExpTimerList
@@ -30,18 +30,18 @@ from ..utils.timer import ExpTimerList
 # @clean_code.add_methods_from(bench_mods)
 class SrNet(nn.Module):
 
-    def __init__(self, arch_cfg, block_cfg, attn_cfg,
-                 search_cfg, normz_cfg, agg_cfg, up_cfg, down_cfg):
+    def __init__(self, arch_cfg, block_cfgs, cfgs):
         super().__init__()
 
         # -- init --
-        self.num_blocks = len(block_cfg)
+        self.num_blocks = len(cfgs.blocklist)
         assert self.num_blocks % 2 == 1,"Must be odd."
-        self.num_encs = len(block_cfg)//2
-        self.num_decs = len(block_cfg)//2
+        self.num_encs = len(cfgs.blocklist)//2
+        self.num_decs = len(cfgs.blocklist)//2
         self.dd_in = arch_cfg.dd_in
         num_encs = self.num_encs
         self.pos_drop = nn.Dropout(p=arch_cfg.drop_rate_pos)
+        block_keys = ["blocklist","attn","search","normz","agg"]
 
         # -- dev --
         self.inspect_print = False
@@ -59,60 +59,49 @@ class SrNet(nn.Module):
                                       out_channel=arch_cfg.in_chans,
                                       kernel_size=3,stride=1)
 
+        # -- init --
+        start,stop = 0,0
+
         # -- encoder layers --
         enc_list = []
-        for l_enc in range(num_encs):
+        for enc_i in range(num_encs):
 
             # -- init --
-            block_cfg_l = block_cfg[l_enc]
-            attn_cfg_l = attn_cfg[l_enc]
-            search_cfg_l = search_cfg[l_enc]
-            normz_cfg_l = normz_cfg[l_enc]
-            agg_cfg_l = agg_cfg[l_enc]
-            down_cfg_l = down_cfg[l_enc]
-            block_cfg_l.type = "enc"
-            attn_cfg_l.type = "enc"
-            enc_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l,
-                                       normz_cfg_l,agg_cfg_l)
-            down_layer = Downsample(down_cfg_l.in_dim,down_cfg_l.out_dim)
-            setattr(self,"encoderlayer_%d" % l_enc,enc_layer)
-            setattr(self,"dowsample_%d" % l_enc,down_layer)
+            start = stop
+            stop = start + cfgs.blocklist[enc_i].depth
+            block_cfgs_i = [block_cfgs[i] for i in range(start,stop)]
+            cfgs_enc = [cfgs[k][enc_i] for k in block_keys]
+            enc_layer = BasicBlockList("enc",block_cfgs_i,*cfgs_enc)
+            down_layer = Downsample(cfgs.scale[enc_i].in_dim,cfgs.scale[enc_i].out_dim)
+            setattr(self,"encoderlayer_%d" % enc_i,enc_layer)
+            setattr(self,"dowsample_%d" % enc_i,down_layer)
 
             # -- add to list --
             paired_layer = [enc_layer,down_layer]
             enc_list.append(paired_layer)
+
         self.enc_list = enc_list
 
         # -- center --
-        block_cfg_l = block_cfg[num_encs]
-        block_cfg_l.type = "conv"
-        attn_cfg_l = attn_cfg[num_encs]
-        attn_cfg_l.type = "conv"
-        search_cfg_l = search_cfg[num_encs]
-        normz_cfg_l = normz_cfg[num_encs]
-        agg_cfg_l = agg_cfg[num_encs]
-        setattr(self,"conv",BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l,
-                                           normz_cfg_l,agg_cfg_l))
+        start = stop
+        stop = start + cfgs.blocklist[num_encs].depth
+        block_cfgs_i = [block_cfgs[i] for i in range(start,stop)]
+        cfgs_conv = [cfgs[k][num_encs] for k in block_keys]
+        setattr(self,"conv",BasicBlockList("conv",block_cfgs_i,*cfgs_conv))
 
         # -- decoder --
         dec_list = []
-        for l_dec in range(num_encs+1,2*num_encs+1):
+        for dec_i in range(num_encs+1,2*num_encs+1):
 
             # -- init --
-            block_cfg_l = block_cfg[l_dec]
-            attn_cfg_l = attn_cfg[l_dec]
-            search_cfg_l = search_cfg[l_dec]
-            normz_cfg_l = normz_cfg[l_dec]
-            agg_cfg_l = agg_cfg[l_dec]
-            up_cfg_l = up_cfg[l_dec-(num_encs+1)]
-            # up_cfg_l = up_cfg[l_dec]
-            block_cfg_l.type = "dec"
-            attn_cfg_l.type = "dec"
-            up_layer = Upsample(up_cfg_l.in_dim,up_cfg_l.out_dim)
-            dec_layer = BasicBlockList(block_cfg_l,attn_cfg_l,search_cfg_l,
-                                       normz_cfg_l,agg_cfg_l)
-            setattr(self,"upsample_%d" % l_dec,up_layer)
-            setattr(self,"decoderlayer_%d" % l_dec,dec_layer)
+            start = stop
+            stop = start + cfgs.blocklist[dec_i].depth
+            block_cfgs_i = [block_cfgs[i] for i in range(start,stop)]
+            cfgs_dec = [cfgs[k][dec_i] for k in block_keys]
+            up_layer = Upsample(cfgs.scale[dec_i].in_dim,cfgs.scale[dec_i].out_dim)
+            dec_layer = BasicBlockList("dec",block_cfgs_i,*cfgs_dec)
+            setattr(self,"upsample_%d" % dec_i,up_layer)
+            setattr(self,"decoderlayer_%d" % dec_i,dec_layer)
 
             # -- add to list --
             paired_layer = [up_layer,dec_layer]

@@ -1,5 +1,6 @@
 
 # -- helpers --
+import numpy as np
 import torch as th
 from pathlib import Path
 from functools import partial
@@ -29,9 +30,10 @@ def load_model(cfg):
     # -- config --
     econfig.set_cfg(cfg)
     defs = shared_defaults(cfg)
+    blocks = extract_block_cfg(cfg,defs.depth)
     pairs = {"io":io_pairs(),
              "arch":arch_pairs(defs),
-             "block":block_pairs(defs),
+             "blocklist":blocklist_pairs({}),
              "attn":attn_pairs(defs),
              "search":search.extract_config(cfg),
              "normz":normz.extract_config(cfg),
@@ -39,19 +41,20 @@ def load_model(cfg):
     device = econfig.optional(cfg,"device","cuda:0")
     cfgs = econfig.extract_set(pairs)
     if econfig.is_init: return
+    # cfgs.block = block_cfg
 
     # -- list of configs --
-    fields = ["attn","search","normz","agg","block"]
-    nblocks = cfgs.arch.nblocks
-    econfig.cfgs_to_lists(cfgs,fields,nblocks)
+    fields = ["attn","search","normz","agg","blocklist"]
+    nblocklists = cfgs.arch.nblocklists
+    econfig.cfgs_to_lists(cfgs,fields,nblocklists)
 
     # -- create up/down sample --
-    cfgs.up = create_upsample_cfg(cfgs.block)
-    cfgs.down = create_downsample_cfg(cfgs.block)
+    cfgs.scale = create_upsample_cfg(cfgs.blocklist)
+    cfgs.scale += [None] # conv
+    cfgs.scale += create_downsample_cfg(cfgs.blocklist)
 
     # -- init model --
-    model = SrNet(cfgs.arch,cfgs.block,cfgs.attn,cfgs.search,
-                  cfgs.normz,cfgs.agg,cfgs.up,cfgs.down)
+    model = SrNet(cfgs.arch,blocks,cfgs)
 
     # -- load model --
     load_pretrained(model,cfgs.io)
@@ -97,10 +100,12 @@ def shared_defaults(_cfg):
     pairs = {"embed_dim":1,
              "nheads":[1,1,1],
              "depth":[1,1,1],
-             "nblocks":5}
+             "nblocklists":5,"nblocks":5}
     cfg = econfig.extract_pairs(pairs,_cfg)
-    cfg.nblocks = 2*(len(cfg.depth)-1)+1
-    _cfg.nblocks = 2*(len(cfg.depth)-1)+1
+    cfg.nblocklists = 2*(len(cfg.depth)-1)+1
+    cfg.nblocks = 2*np.sum(cfg.depth[:-1]) * cfg.depth[-1]
+    _cfg.nblocklists = 2*(len(cfg.depth)-1)+1
+    _cfg.nblocks = 2*np.sum(cfg.depth[:-1]) * cfg.depth[-1]
     return cfg
 
 def io_pairs():
@@ -120,9 +125,9 @@ def attn_pairs(defs):
              "drop_rate_proj":0.,"attn_timer":False}
     return pairs | defs
 
-def block_pairs(defs):
+def blocklist_pairs(defs):
     shape = {"depth":None,"nheads":None,
-             "nblocks":None,"freeze":False}
+             "nblocklists":None,"freeze":False}
     training = {"mlp_ratio":4.,"embed_dim":None,
                 "block_mlp":"mlp","norm_layer":"LayerNorm",
                 "drop_rate_mlp":0.,"drop_rate_path":0.1}
@@ -139,15 +144,46 @@ def arch_pairs(defs):
     }
     return pairs  | defs
 
+def extract_block_cfg(_cfg,depth):
+    cfg = econfig.extract_pairs({'search_menu_name':'full',
+                                 "search_v0":"exact",
+                                 "search_v1":"refine"},_cfg)
+    # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
+    search_menu_name = cfg.search_menu_name
+    v0,v1 = cfg.search_v0,cfg.search_v0
+    search_names = search_menu(search_menu_name,depth,v0,v1)
+    pairs = {"search_name":search_names}
+    L = len(search_names)
 
-def refinement_menu(rtype,nblocks):
-    if rtype == "full":
-        return [False,]*nblocks,"full"
-    elif rtype == "first":
-        return [True,]*nblocks,"first"
-    elif rtype == "one":
-        return [True,]*nblocks,"one"
-    elif rtype == "nth":
-        return [True,]*nblocks,"nth"
+    # -- format return value; a list of pydicts --
+    blocks = []
+    for l in range(L):
+        block_l = edict()
+        for key,val_list in pairs.items():
+            block_l[key] = val_list[l]
+        blocks.append(block_l)
+    return blocks
+
+def search_menu(menu_name,depth,v0,v1):
+    nblocks = 2*np.sum(depth[:-1]) + depth[-1]
+
+    if menu_name == "full":
+        return [v0,]*nblocks
+    elif menu_name == "one":
+        return [v0,] + [v1,]*(nblocks-1)
+    elif menu_name == "first":
+        names = []
+        for depth_i in depth:
+            names_i = [v0,] + [v1,]*(depth_i-1)
+            names.append(names_i)
+        return names
+    elif menu_name == "nth":
+        names = []
+        for i in range(nblocks):
+            if (i % menu_n == 0) or i == 0:
+                names.append(v0)
+            else:
+                names.append(v1)
+        return names
     else:
-        raise ValeError("Uknown refinement type in menu [%s]" % rtype)
+        raise ValeError("Uknown search type in menu [%s]" % menu_name)

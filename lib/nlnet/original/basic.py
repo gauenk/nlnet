@@ -18,15 +18,16 @@ from dev_basics.utils.timer import ExpTimerList
 from . import attn_mods
 from dev_basics.utils import clean_code
 
-
 # @clean_code.add_methods_from(bench_mods)
 class BasicBlockList(nn.Module):
-    def __init__(self, block_cfg, attn_cfg, search_cfg, normz_cfg, agg_cfg):
+    def __init__(self, btype, block_cfg, blocklist_cfg, attn_cfg,
+                 search_cfg, normz_cfg, agg_cfg):
         super().__init__()
         self.block_cfg = block_cfg
         self.blocks = nn.ModuleList([
-            BasicBlock(block_cfg,attn_cfg,search_cfg,normz_cfg,agg_cfg)
-            for _ in range(block_cfg.depth)
+            BasicBlock(btype,block_cfg[d],blocklist_cfg,attn_cfg,
+                       search_cfg,normz_cfg,agg_cfg)
+            for d in range(blocklist_cfg.depth)
         ])
 
     def extra_repr(self) -> str:
@@ -57,20 +58,21 @@ class BasicBlockList(nn.Module):
 
 class BasicBlock(nn.Module):
 
-    def __init__(self, block_cfg, attn_cfg, search_cfg, normz_cfg, agg_cfg):
+    def __init__(self, btype, block_cfg, blocklist_cfg,
+                 attn_cfg, search_cfg, normz_cfg, agg_cfg):
         super().__init__()
 
         # -- unpack vars --
-        self.block_cfg = block_cfg
-        self.dim = block_cfg.embed_dim * block_cfg.nheads
-        self.nheads = block_cfg.nheads
-        self.mlp_ratio = block_cfg.mlp_ratio
-        self.block_mlp = block_cfg.block_mlp
-        self.drop_mlp_rate = block_cfg.drop_rate_mlp
-        self.drop_path_rate = block_cfg.drop_rate_path
-        norm_layer = get_norm_layer(block_cfg.norm_layer)
+        self.type = btype
+        self.blocklist_cfg = blocklist_cfg
+        self.dim = blocklist_cfg.embed_dim * blocklist_cfg.nheads
+        self.nheads = blocklist_cfg.nheads
+        self.mlp_ratio = blocklist_cfg.mlp_ratio
+        self.block_mlp = blocklist_cfg.block_mlp
+        self.drop_mlp_rate = blocklist_cfg.drop_rate_mlp
+        self.drop_path_rate = blocklist_cfg.drop_rate_path
+        norm_layer = get_norm_layer(blocklist_cfg.norm_layer)
         dpath = self.drop_path_rate
-        self.type = block_cfg.type
         mult = 2 if self.type == "dec" else 1
 
         # -- init layer --
@@ -83,7 +85,7 @@ class BasicBlock(nn.Module):
                             self.drop_mlp_rate,self.dim*mult)
 
     def extra_repr(self) -> str:
-        return str(self.block_cfg)
+        return str(self.block_cfg) + " " + str(self.blocklist_cfg)
 
     def forward(self, vid, flows=None, state=None):
 
