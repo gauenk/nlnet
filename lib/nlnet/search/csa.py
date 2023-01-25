@@ -13,7 +13,7 @@ def init(cfg):
 def init_from_cfg(cfg):
     return init(cfg)
 
-class NLSearch():
+class NLSearch(nn.Module):
 
     def __init__(self,k=7, ps=7, nheads=1, stride0=1, stride1=1):
         self.k = k
@@ -22,10 +22,9 @@ class NLSearch():
         self.stride0 = stride0
         self.stride1 = stride1
 
-    def __call__(self,vid,**kwargs):
+    def forward(self,vid):
         nheads = self.nheads
         B,T,C,H,W = vid.shape
-        vid = vid
         vid = rearrange(vid,'b t (H c) h w -> (b t H) c h w',H=nheads)
         patches = iunfold(vid,self.ps,self.stride0)
         q = patches
@@ -35,6 +34,12 @@ class NLSearch():
         attn = rearrange(attn,'(b t H) d0 d1 -> b t H d0 d1',b=B,H=nheads)
         inds = th.zeros((1))
         return attn,inds
+
+    # -- Comparison API --
+    def setup_compare(self,vid,flows,aflows,inds):
+        def wrap(vid0,vid1):
+            return self.forward(vid0)
+        return wrap
 
     def flops(self,B,C,H,W):
 

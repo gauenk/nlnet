@@ -1,6 +1,7 @@
-import dnls
+
 import torch as th
 import torch.nn as nn
+import dnls
 from einops import rearrange
 
 def get_search(k,ps,ws_r,ws,nheads,stride0,stride1):
@@ -32,8 +33,11 @@ def init(cfg):
 def init_from_cfg(cfg):
     return init(cfg)
 
-class NLSearch():
-    def __init__(self, k=7, k_s=50, ps=7, ws_r=1, ws=8, nheads=1, stride0=4,stride1=1):
+class NLSearch(nn.Module):
+
+    def __init__(self, k=7, k_s=50, ps=7, ws_r=1, ws=8,
+                 nheads=1, stride0=4, stride1=1):
+        super().__init__()
         self.k = k
         self.k_s = k_s
         self.ps = ps
@@ -41,12 +45,19 @@ class NLSearch():
         self.nheads = nheads
         self.search = get_search(k,ps,ws_r,ws,nheads,stride0,stride1)
 
-    def __call__(self,vid,**kwargs):
-        inds_p = kwargs['inds']
-        B,T,C,H,W = vid.shape
-        dists,inds = self.search(vid,0,inds_p)
-        inds = th.zeros(1)
+    def forward(self,vid0,vid1,flows=None,state=None):
+        inds_p = state[0]
+        B,T,C,H,W = vid0.shape
+        dists,inds = self.search(vid0,vid1,inds_p)
+        state[1] = inds
         return dists,inds
+
+    # -- Comparison API --
+    def setup_compare(self,vid,flows,aflows,inds):
+        state = [inds,None]
+        def wrap(vid0,vid1):
+            return self.forward(vid0,vid1,flows,state)
+        return wrap
 
     def flops(self,B,C,H,W):
         return self.search.flops(B,C,H,W,self.k_s)

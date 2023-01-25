@@ -48,10 +48,10 @@ def load_model(cfg):
     nblocklists = cfgs.arch.nblocklists
     econfig.cfgs_to_lists(cfgs,fields,nblocklists)
 
-    # -- create up/down sample --
-    cfgs.scale = create_upsample_cfg(cfgs.blocklist)
+    # -- create down/up sample --
+    cfgs.scale = create_downsample_cfg(cfgs.blocklist)
     cfgs.scale += [None] # conv
-    cfgs.scale += create_downsample_cfg(cfgs.blocklist)
+    cfgs.scale += create_upsample_cfg(cfgs.blocklist)
 
     # -- init model --
     model = SrNet(cfgs.arch,blocks,cfgs)

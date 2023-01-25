@@ -5,7 +5,7 @@ import importlib
 # # -- local modules --
 # from . import swin
 # from . import nat
-# from . import nl
+from . import nl
 # from . import nlp
 # from . import nlat
 # from . import refine
@@ -32,10 +32,12 @@ def init_search(cfg):
     cfg = cfgs.search
 
     # -- create module --
-    modules = {"swin":"swin","nat":"nat","nl":"nl",
-               "refine":"refine","csa":"csa","nlp":"nlp",
-               "exact":"nl","nlat":"nlat","approx":"nlat"}
-    mname = modules[cfg.search_name]
+    modules = {"exact":"nl","approx_t":"nlat","approx_s":"nlas",
+               "approx_st":"nlas"}
+    if cfg.search_name in modules:
+        mname = modules[cfg.search_name]
+    else:
+        mname = cfg.search_name
     module = importlib.import_module("nlnet.search."+mname)
     search_fxn = getattr(module,'init')(cfg)
     return search_fxn
@@ -44,14 +46,14 @@ def init(cfg):
     return init_search(cfg)
 
 def search_pairs():
-    pairs = {"ps":7,"pt":1,"k":10,"ws_r":1,
-             "nftrs_per_head":-1,"nchnls":-1,
+    pairs = {"ps":7,"pt":1,"k":10,"ws_r":1,"k_s":10,
              "ws":21,"wt":0,"exact":False,"rbwd":True,
+             "nftrs_per_head":-1,"nchnls":-1,
              "nheads":1,"stride0":4,"stride1":1,
              "reflect_bounds":True,"use_k":True,"use_adj":True,
              "search_abs":False,"anchor_self":False,
              "dist_type":"l2","search_name":"nl","use_flow":True,
-             "dilation":1}
+             "dilation":1,"stride0_a":8}
     return pairs
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

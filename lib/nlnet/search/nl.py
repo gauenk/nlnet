@@ -49,18 +49,20 @@ class NLSearch(nn.Module):
         self.use_flow = use_flow
         self.search = get_search(k,ps,ws,wt,nheads,stride0,stride1)
 
-    def forward(self,vid0,vid1,flows,state):
+    def forward(self,vid0,vid1,flows=None,state=None):
         B,T,C,H,W = vid0.shape
-        dists,inds = self.search(vid0,0,-1,vid1)
+        dists,inds = self.search(vid0,vid1)
         return dists,inds
 
-    # def __call__(self,vid,**kwargs):
-    #     B,T,C,H,W = vid.shape
-    #     dists,inds = self.search(vid)
-    #     return dists,inds
-
-    def set_flows(self,vid,flows,aflows=None):
+    def set_flows(self,vid,flows):
         self.search.set_flows(flows,vid)
+
+    # -- Comparison API --
+    def setup_compare(self,vid,flows,aflows,inds):
+        self.set_flows(vid,flows)
+        def wrap(vid0,vid1):
+            return self.forward(vid0,vid1,flows)
+        return wrap
 
     def flops(self,B,C,H,W):
         return self.search.flops(B,C,H,W)

@@ -32,6 +32,9 @@ def get_exact_search(k,ps,ws,wt,nheads,stride0,stride1):
                               anchor_self=anchor_self,use_self=use_self)
     return search
 
+def interp_inds(scale,stride,T,H,W):
+    return dnls.search.init("interpolate_inds",scale,stride,T,H,W)
+
 def get_refine_search(k,ps,ws_r,ws,nheads,stride0,stride1):
     pt = 1
     oh0,ow0,oh1,ow1 = 0,0,0,0
@@ -58,33 +61,50 @@ def init_from_cfg(cfg):
     return init(cfg)
 
 def init(cfg):
-    return NLSApproxTime(cfg.k,cfg.ps,cfg.ws_r,cfg.ws,cfg.wt,
-                         cfg.nheads,cfg.stride0,cfg.stride1)
+    return NLSApproxSpace(cfg.k,cfg.ps,cfg.ws_r,cfg.ws,cfg.wt,
+                          cfg.nheads,cfg.stride0_a,cfg.stride0,cfg.stride1)
 
-class NLSApproxTime(nn.Module):
+class NLSApproxSpace(nn.Module):
 
-    def __init__(self, k=7, ps=7, ws_r=3, ws=8, wt=1, nheads=1, stride0=4,stride1=1):
+    def __init__(self, k=7, ps=7, ws_r=1, ws=8, wt=1,
+                 nheads=1, stride0_a=8, stride0=4, stride1=1):
         super().__init__()
         self.k = k
         self.ps = ps
         self.ws = ws
         self.wt = wt
         self.nheads = nheads
-        self.esearch = get_exact_search(k,ps,ws,0,nheads,stride0,stride1)
-        self.rsearch = get_refine_search(k,ps,ws_r,ws,nheads,stride0,stride1)
+        assert stride0_a % stride0 == 0,"Must be an integer multiple."
+        self.stride0 = stride0
+        self.scale = stride0_a//stride0
+        self.esearch = get_exact_search(k,ps,ws,wt,nheads,stride0_a,stride1)
+        self.rsearch = get_refine_search(k,ps,1,ws,nheads,stride0,stride1)
 
-    def forward(self,vid0,vid1,flows,state):
+    def forward(self,vid0,vid1,flows):
         B,T,C,H,W = vid0.shape
         dists,inds = self.esearch(vid0,vid1)
-        if self.wt > 0:
-            inds_t = self.apply_offsets(inds,flows)
-            # for i in range(3):
-            #     print(i,inds_t[...,i].min(),inds_t[...,i].max())
-            # print(vid0.shape,vid1.shape,inds_t.shape)
-            _dists,_inds = self.rsearch(vid0,vid1,inds_t)
-            dists = th.cat([dists,_dists],2)
-            inds = th.cat([inds,_inds],2)
+        dists,inds = self.upsample(vid0,vid1,dists,inds)
         return dists,inds
+
+    def upsample(self,vid0,vid1,dists_a,inds_a):
+        B,T,C,H,W = vid0.shape
+        interp = interp_inds(self.scale,self.stride0,T,H,W)
+        inds_f = interp(inds_a)
+        dists_f = self.fill_dists(vid0,vid1,dists_a,inds_f)
+        return dists_f,inds_f
+
+    def fill_dists(self,vid0,vid1,dists_a,inds_f):
+        inds_n = self.new_inds(inds_f)
+        dists_n = self.rsearch(vid0,vid1,inds_n)
+        dists_f = self.fill_dists(dists_a,dists_n)
+        return dists_f
+
+    # def fill_dists(dists_a,dists_n):
+    #     return dists_f
+
+    def new_inds(self,inds_f):
+        inds_n = "inds_f - inds_a"
+        return inds_n
 
     def apply_offsets(self,inds,flows):
         inds_t = dnls.nn.temporal_inds(inds[:,0],flows,self.wt)
@@ -95,7 +115,7 @@ class NLSApproxTime(nn.Module):
     # -- Comparison API --
     def setup_compare(self,vid,flows,aflows,inds):
         def wrap(vid0,vid1):
-            return self.forward(vid0,vid1,flows,[inds,None])
+            return self.forward(vid0,vid1,flows)
         return wrap
 
     def set_flows(self,vid,flows,aflows):

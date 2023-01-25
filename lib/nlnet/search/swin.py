@@ -26,15 +26,16 @@ def init(cfg):
 def init_from_cfg(cfg):
     return init(cfg)
 
-class NLSearch():
+class NLSearch(nn.Module):
 
     def __init__(self,k=7, ps=7, nheads=1):
+        super().__init__()
         self.k = k
         self.ps = ps
         self.ws = 8
         self.nheads = nheads
 
-    def __call__(self,vid,**kwargs):
+    def forward(self,vid):
         B,T,C,H,W = vid.shape
         vid = vid
         vid = rearrange(vid,'b t c h w -> (b t) h w c')
@@ -46,6 +47,12 @@ class NLSearch():
         # print("attn.shape: ",attn.shape)
         inds = th.zeros_like(attn).type(th.int32)
         return attn,inds
+
+    # -- Comparison API --
+    def setup_compare(self,vid,flows,aflows,inds):
+        def wrap(vid0,vid1):
+            return self.forward(vid0)
+        return wrap
 
     def flops(self,B,C,H,W):
 
