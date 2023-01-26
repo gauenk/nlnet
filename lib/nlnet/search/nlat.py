@@ -94,11 +94,12 @@ class NLSApproxTime(nn.Module):
 
     # -- Comparison API --
     def setup_compare(self,vid,flows,aflows,inds):
+        self.set_flows(vid,flows)
         def wrap(vid0,vid1):
             return self.forward(vid0,vid1,flows,[inds,None])
         return wrap
 
-    def set_flows(self,vid,flows,aflows):
+    def set_flows(self,vid,flows):
         self.esearch.set_flows(flows,vid)
 
     def flops(self,B,C,H,W):

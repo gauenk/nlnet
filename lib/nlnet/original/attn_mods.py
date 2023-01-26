@@ -15,16 +15,15 @@ register_method = clean_code.register_method(__methods__)
 
 
 @register_method
-def init_search(self,search_cfg):
-    stype = search_cfg.search_type
-    if "full" in stype:
+def init_search(self,search_name,search_cfg):
+    if "full" in search_name:
         search = self.init_full(search_cfg)
-    elif "approx" in stype:
+    elif "approx" in search_name:
         search = self.init_approx(search_cfg)
-    elif "refine" in stype:
+    elif "refine" in search_name:
         search = self.init_refine(search_cfg)
     else:
-        raise ValueError(f"Uknown search function [{stype}]")
+        raise ValueError(f"Uknown search function [{search_name}]")
     return search
 
 @register_method

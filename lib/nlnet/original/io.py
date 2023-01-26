@@ -1,5 +1,7 @@
 
 # -- helpers --
+import copy
+dcopy = copy.deepcopy
 import numpy as np
 import torch as th
 from pathlib import Path
@@ -30,7 +32,7 @@ def load_model(cfg):
     # -- config --
     econfig.set_cfg(cfg)
     defs = shared_defaults(cfg)
-    blocks = extract_block_cfg(cfg,defs.depth)
+    menu_cfgs = extract_menu_cfg(cfg,defs.depth)
     pairs = {"io":io_pairs(),
              "arch":arch_pairs(defs),
              "blocklist":blocklist_pairs({}),
@@ -41,20 +43,27 @@ def load_model(cfg):
     device = econfig.optional(cfg,"device","cuda:0")
     cfgs = econfig.extract_set(pairs)
     if econfig.is_init: return
-    # cfgs.block = block_cfg
 
-    # -- list of configs --
-    fields = ["attn","search","normz","agg","blocklist"]
-    nblocklists = cfgs.arch.nblocklists
-    econfig.cfgs_to_lists(cfgs,fields,nblocklists)
+    # -- unpack --
+    nblocklists = defs.nblocklists
+
+    # -- expand blocklists --
+    fields = ["blocklist"]
+    blocklists = econfig.cfgs2lists(cfgs.blocklist,defs.nblocklists)
+
+    # -- fill with menu --
+    fields = ["attn","search","normz","agg"]
+    blocks = fill_menu(cfgs,fields,menu_cfgs)
+    dfill = {"attn":["nheads","embed_dim"],"search":["nheads"]}
+    fill_blocks(blocks,blocklists,dfill)
 
     # -- create down/up sample --
-    cfgs.scale = create_downsample_cfg(cfgs.blocklist)
-    cfgs.scale += [None] # conv
-    cfgs.scale += create_upsample_cfg(cfgs.blocklist)
+    scales = create_downsample_cfg(blocklists)
+    scales += [None] # conv
+    scales += create_upsample_cfg(blocklists)
 
     # -- init model --
-    model = SrNet(cfgs.arch,blocks,cfgs)
+    model = SrNet(cfgs.arch,blocklists,scales,blocks)
 
     # -- load model --
     load_pretrained(model,cfgs.io)
@@ -119,11 +128,10 @@ def io_pairs():
 
 def attn_pairs(defs):
     pairs = {"qk_frac":1.,"qkv_bias":True,
-             "token_mlp":'leff',"embed_dim":None,
-             "attn_mode":"default","nheads":None,
+             "token_mlp":'leff',"attn_mode":"default",
              "token_projection":'linear',
              "drop_rate_proj":0.,"attn_timer":False}
-    return pairs | defs
+    return pairs
 
 def blocklist_pairs(defs):
     shape = {"depth":None,"nheads":None,
@@ -144,14 +152,35 @@ def arch_pairs(defs):
     }
     return pairs  | defs
 
-def extract_block_cfg(_cfg,depth):
+def extract_menu_cfg(_cfg,depth):
+
+    """
+    Extract unique values for each _block_
+    This can get to sizes ~=50
+    So a menu is used to simplify setting each of the 50 parameters.
+    These "fill" the fixed configs above.
+    """
+
     cfg = econfig.extract_pairs({'search_menu_name':'full',
                                  "search_v0":"exact",
                                  "search_v1":"refine"},_cfg)
+
+    # -- unpack attn name --
+    # ...
+
+    # -- unpack search name --
     # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
     search_menu_name = cfg.search_menu_name
     v0,v1 = cfg.search_v0,cfg.search_v0
     search_names = search_menu(search_menu_name,depth,v0,v1)
+
+    # -- unpack normz name --
+    # ...
+
+    # -- unpack agg name --
+    # ...
+
+    # -- grouped pairs --
     pairs = {"search_name":search_names}
     L = len(search_names)
 
@@ -162,6 +191,7 @@ def extract_block_cfg(_cfg,depth):
         for key,val_list in pairs.items():
             block_l[key] = val_list[l]
         blocks.append(block_l)
+
     return blocks
 
 def search_menu(menu_name,depth,v0,v1):
@@ -187,3 +217,31 @@ def search_menu(menu_name,depth,v0,v1):
         return names
     else:
         raise ValeError("Uknown search type in menu [%s]" % menu_name)
+
+def fill_menu(_cfgs,fields,menu_cfgs):
+
+    # -- fields to fill --
+    mfields = {"attn":[],"search":["search_name"],"normz":[],"agg":[],}
+
+    # -- filling --
+    cfgs = []
+    for menu_cfg in menu_cfgs:
+        cfgs_m = edict()
+        for field in fields:
+            cfg_f = dcopy(_cfgs[field])
+            for fill_key in mfields[field]:
+                cfg_f[fill_key] = menu_cfg[fill_key]
+            cfgs_m[field] = cfg_f
+        cfgs.append(cfgs_m)
+    return cfgs
+
+def fill_blocks(blocks,blocklists,fill_pydict):
+    start,stop = 0,0
+    for blocklist in blocklists:
+        start = stop
+        stop = start + blocklist.depth
+        for b in range(start,stop):
+            block = blocks[b]
+            for field,fill_fields in fill_pydict.items():
+                for fill_field in fill_fields:
+                    block[field][fill_field] = blocklist[fill_field]

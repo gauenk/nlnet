@@ -15,7 +15,7 @@ from functools import partial
 from timm.models.layers import trunc_normal_
 
 # -- project deps --
-from .basic import BasicBlockList
+from .basic import BlockList
 from .scaling import Downsample,Upsample
 from .proj import InputProj,InputProjSeq,OutputProj,OutputProjSeq
 from ..utils.model_utils import apply_freeze,cfgs_slice
@@ -23,21 +23,16 @@ from ..utils.model_utils import apply_freeze,cfgs_slice
 # -- benchmarking --
 from ..utils.timer import ExpTimerList
 
-# -- clean coding --
-# from . import attn_mods
-# from dev_basics.utils import clean_code
-
-# @clean_code.add_methods_from(bench_mods)
 class SrNet(nn.Module):
 
-    def __init__(self, arch_cfg, block_cfgs, cfgs):
+    def __init__(self, arch_cfg, blocklists, scales, blocks):
         super().__init__()
 
         # -- init --
-        self.num_blocks = len(cfgs.blocklist)
+        self.num_blocks = len(blocklists)
         assert self.num_blocks % 2 == 1,"Must be odd."
-        self.num_encs = len(cfgs.blocklist)//2
-        self.num_decs = len(cfgs.blocklist)//2
+        self.num_encs = len(blocklists)//2
+        self.num_decs = len(blocklists)//2
         self.dd_in = arch_cfg.dd_in
         num_encs = self.num_encs
         self.pos_drop = nn.Dropout(p=arch_cfg.drop_rate_pos)
@@ -68,11 +63,11 @@ class SrNet(nn.Module):
 
             # -- init --
             start = stop
-            stop = start + cfgs.blocklist[enc_i].depth
-            block_cfgs_i = [block_cfgs[i] for i in range(start,stop)]
-            cfgs_enc = [cfgs[k][enc_i] for k in block_keys]
-            enc_layer = BasicBlockList("enc",block_cfgs_i,*cfgs_enc)
-            down_layer = Downsample(cfgs.scale[enc_i].in_dim,cfgs.scale[enc_i].out_dim)
+            stop = start + blocklists[enc_i].depth
+            blocklist_i = blocklists[enc_i]
+            blocks_i = [blocks[i] for i in range(start,stop)]
+            enc_layer = BlockList("enc",blocklist_i,blocks_i)
+            down_layer = Downsample(scales[enc_i].in_dim,scales[enc_i].out_dim)
             setattr(self,"encoderlayer_%d" % enc_i,enc_layer)
             setattr(self,"dowsample_%d" % enc_i,down_layer)
 
@@ -84,10 +79,10 @@ class SrNet(nn.Module):
 
         # -- center --
         start = stop
-        stop = start + cfgs.blocklist[num_encs].depth
-        block_cfgs_i = [block_cfgs[i] for i in range(start,stop)]
-        cfgs_conv = [cfgs[k][num_encs] for k in block_keys]
-        setattr(self,"conv",BasicBlockList("conv",block_cfgs_i,*cfgs_conv))
+        stop = start + blocklists[num_encs].depth
+        blocklist_i = blocklists[num_encs]
+        blocks_i = [blocks[i] for i in range(start,stop)]
+        setattr(self,"conv",BlockList("conv",blocklist_i,blocks_i))
 
         # -- decoder --
         dec_list = []
@@ -95,11 +90,13 @@ class SrNet(nn.Module):
 
             # -- init --
             start = stop
-            stop = start + cfgs.blocklist[dec_i].depth
-            block_cfgs_i = [block_cfgs[i] for i in range(start,stop)]
-            cfgs_dec = [cfgs[k][dec_i] for k in block_keys]
-            up_layer = Upsample(cfgs.scale[dec_i].in_dim,cfgs.scale[dec_i].out_dim)
-            dec_layer = BasicBlockList("dec",block_cfgs_i,*cfgs_dec)
+            stop = start + blocklists[dec_i].depth
+            blocklist_i = blocklists[dec_i]
+            blocks_i = [blocks[i] for i in range(start,stop)]
+            # attn_cfgs_i = [attn_cfgs[i] for i in range(start,stop)]
+            # cfgs_dec = [cfgs[k][dec_i] for k in block_keys]
+            up_layer = Upsample(scales[dec_i].in_dim,scales[dec_i].out_dim)
+            dec_layer = BlockList("dec",blocklist_i,blocks_i)
             setattr(self,"upsample_%d" % dec_i,up_layer)
             setattr(self,"decoderlayer_%d" % dec_i,dec_layer)
 

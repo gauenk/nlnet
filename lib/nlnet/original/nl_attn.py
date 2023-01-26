@@ -29,26 +29,29 @@ import dnls
 from dev_basics.utils.timer import ExpTimer,ExpTimerList
 
 # -- modules --
-# from . import inds_buffer
 from . import attn_mods
 from dev_basics.utils import clean_code
 
 @clean_code.add_methods_from(attn_mods)
-# @clean_code.add_methods_from(bench_mods)
 class NonLocalAttention(nn.Module):
-    def __init__(self, dim_mult, attn_cfg, search_cfg, normz_cfg, agg_cfg):
+    def __init__(self, attn_cfg, search_cfg, normz_cfg, agg_cfg):
         super().__init__()
 
+        # -- unpack --
+        embed_dim = attn_cfg.embed_dim
+        nheads = attn_cfg.nheads
+        dim = embed_dim * nheads
+
         # -- init configs --
-        dim = attn_cfg.embed_dim*attn_cfg.nheads*dim_mult
         self.dim = dim
         self.attn_cfg = attn_cfg
         self.search_cfg = search_cfg
+        self.normz_cfg = normz_cfg
+        self.agg_cfg = agg_cfg
 
         # -- attn info --
         self.token_projection = attn_cfg.token_projection
-        self.qkv = ConvQKV(dim,attn_cfg.nheads,
-                           dim_mult*attn_cfg.embed_dim,
+        self.qkv = ConvQKV(dim,nheads,embed_dim,
                            attn_cfg.qk_frac,bias=attn_cfg.qkv_bias)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(attn_cfg.drop_rate_proj)
@@ -157,8 +160,8 @@ class NonLocalAttention(nn.Module):
         return patches
 
     def extra_repr(self) -> str:
-        str_repr = "Attention: \n" + str(self.attn_cfg) + "\n"*5
-        str_repr += "Search: \n" + str(self.search_cfg) + "\n"*5
+        str_repr = "Attention: \n" + str(self.attn_cfg) + "\n"*2
+        str_repr += "Search: \n" + str(self.search_cfg) + "\n"*2
         return str_repr
 
     def flops(self, H, W):
