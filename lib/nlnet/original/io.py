@@ -171,7 +171,7 @@ def extract_menu_cfg(_cfg,depth):
     # -- unpack search name --
     # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
     search_menu_name = cfg.search_menu_name
-    v0,v1 = cfg.search_v0,cfg.search_v0
+    v0,v1 = cfg.search_v0,cfg.search_v1
     search_names = search_menu(search_menu_name,depth,v0,v1)
 
     # -- unpack normz name --

@@ -52,6 +52,9 @@ class NLSearch(nn.Module):
         state[1] = inds
         return dists,inds
 
+    def set_flows(self,vid,flows):
+        pass
+
     # -- Comparison API --
     def setup_compare(self,vid,flows,aflows,inds):
         state = [inds,None]
