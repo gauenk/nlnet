@@ -93,8 +93,6 @@ class SrNet(nn.Module):
             stop = start + blocklists[dec_i].depth
             blocklist_i = blocklists[dec_i]
             blocks_i = [blocks[i] for i in range(start,stop)]
-            # attn_cfgs_i = [attn_cfgs[i] for i in range(start,stop)]
-            # cfgs_dec = [cfgs[k][dec_i] for k in block_keys]
             up_layer = Upsample(scales[dec_i].in_dim,scales[dec_i].out_dim)
             dec_layer = BlockList("dec",blocklist_i,blocks_i)
             setattr(self,"upsample_%d" % dec_i,up_layer)

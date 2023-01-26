@@ -47,15 +47,22 @@ class NLSearch(nn.Module):
         self.nheads = nheads
         self.dilation = dilation
         self.use_flow = use_flow
+        self.use_update_state = True
         self.search = get_search(k,ps,ws,wt,nheads,stride0,stride1)
 
+    # -- Model API --
     def forward(self,vid0,vid1,flows=None,state=None):
         B,T,C,H,W = vid0.shape
         dists,inds = self.search(vid0,vid1)
+        self.update_state(state,dists,inds)
         return dists,inds
 
     def set_flows(self,vid,flows):
         self.search.set_flows(flows,vid)
+
+    def update_state(self,state,dists,inds):
+        if not(self.use_update_state): return
+        state[1] = inds.detach()
 
     # -- Comparison API --
     def setup_compare(self,vid,flows,aflows,inds):

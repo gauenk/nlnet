@@ -70,9 +70,11 @@ class NLSApproxTime(nn.Module):
         self.ws = ws
         self.wt = wt
         self.nheads = nheads
+        self.use_update_state = True
         self.esearch = get_exact_search(k,ps,ws,0,nheads,stride0,stride1)
         self.rsearch = get_refine_search(k,ps,ws_r,ws,nheads,stride0,stride1)
 
+    # -- Model API --
     def forward(self,vid0,vid1,flows,state):
         B,T,C,H,W = vid0.shape
         dists,inds = self.esearch(vid0,vid1)
@@ -84,8 +86,17 @@ class NLSApproxTime(nn.Module):
             _dists,_inds = self.rsearch(vid0,vid1,inds_t)
             dists = th.cat([dists,_dists],2)
             inds = th.cat([inds,_inds],2)
+        self.update_state(state,dists,inds)
         return dists,inds
 
+    def set_flows(self,vid,flows):
+        self.esearch.set_flows(flows,vid)
+
+    def update_state(self,state,dists,inds):
+        if not(self.use_update_state): return
+        state[1] = inds.detach()
+
+    # -- Class Logic --
     def apply_offsets(self,inds,flows):
         inds_t = dnls.nn.temporal_inds(inds[:,0],flows,self.wt)
         inds_t = rearrange(inds_t,'b q k s tr -> b 1 (q s) k tr')
@@ -98,9 +109,6 @@ class NLSApproxTime(nn.Module):
         def wrap(vid0,vid1):
             return self.forward(vid0,vid1,flows,[inds,None])
         return wrap
-
-    def set_flows(self,vid,flows):
-        self.esearch.set_flows(flows,vid)
 
     def flops(self,B,C,H,W):
         return self.esearch.flops(B,C,H,W)
