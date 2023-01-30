@@ -21,12 +21,13 @@ def main():
     print("PID: ",pid)
 
     # -- records --
-    cfg_file = ["exps/train_baseline/first_grid.cfg"]
-    cfg_file += ["exps/train_baseline/exact_grid.cfg"]
-    exps = cache_io.get_exps(cfg_file)
-    exps = [exps[0]]
-    # exps = [exps[1]]
-    # exps = exps[2:]
+    approx_exps = cache_io.get_exps("exps/train_baseline/first_grid.cfg")
+    exact_exps = cache_io.get_exps("exps/train_baseline/exact_grid.cfg")
+    exps = approx_exps + exact_exps
+    # exps = [approx_exps[0]]
+    exps = [approx_exps[1]]
+    # exps = [exact_exps[0]]
+
     def clear_fxn(num,cfg):
         return True
     records = cache_io.run_exps(exps,train.run,
