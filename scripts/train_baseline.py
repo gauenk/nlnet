@@ -24,10 +24,16 @@ def main():
     cfg_file = ["exps/train_baseline/first_grid.cfg"]
     cfg_file += ["exps/train_baseline/exact_grid.cfg"]
     exps = cache_io.get_exps(cfg_file)
+    exps = [exps[0]]
+    # exps = [exps[1]]
+    # exps = exps[2:]
+    def clear_fxn(num,cfg):
+        return True
     records = cache_io.run_exps(exps,train.run,
                                 name = ".cache_io/train_baseline",
                                 version = "v1",
                                 clear=False,skip_loop=False,
+                                clear_fxn=clear_fxn,
                                 enable_dispatch="slurm")
     # -- summary --
     print("\n"*3)

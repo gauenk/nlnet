@@ -129,7 +129,6 @@ class SrNet(nn.Module):
     def forward(self, vid, flows=None, states=None):
 
         # -- Input Projection --
-        print(vid.shape)
         b,t,c,h,w = vid.shape
         y = self.input_proj(vid)
         y = self.pos_drop(y)
@@ -184,6 +183,7 @@ class SrNet(nn.Module):
 
         # -- timing --
         self.update_block_times()
+        # print("done.")
 
         return out
 

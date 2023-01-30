@@ -27,7 +27,7 @@ def main():
     records = cache_io.run_exps(exps,test.run,
                                 name = ".cache_io/compare_arch",
                                 version = "v1",
-                                clear=False,skip_loop=False,
+                                clear=True,skip_loop=False,
                                 enable_dispatch="slurm")
 
     # -- summary --

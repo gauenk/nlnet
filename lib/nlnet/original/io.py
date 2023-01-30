@@ -162,7 +162,7 @@ def arch_pairs(defs):
 
 def extract_search_cfg(cfg):
     cfg = dnls.search.extract_config(cfg)
-    cfg = cfg | {"use_flow":True}
+    cfg = cfg | {"use_flow":True,"kr_t":-1,"wr_t":-1}
     return cfg
 
 def extract_menu_cfg(_cfg,depth):

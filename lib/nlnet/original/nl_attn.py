@@ -99,6 +99,15 @@ class NonLocalAttention(nn.Module):
             dists,inds = self.search(q_vid,k_vid,inds_p)
         else:
             dists,inds = self.search(q_vid,k_vid,flows.fflow,flows.bflow)
+
+        # -- viz --
+        # args = th.where(inds == -1)
+        # print(inds[0,0,1005])
+        # for i in range(3):
+        #     print(i,inds[...,i].min(),inds[...,i].max())
+        # print(th.any(th.isnan(dists)))
+        # print(dists[0,0,0])
+
         self.update_state(state,dists,inds,q_vid.shape)
         self.timer.sync_stop("search")
         return dists,inds

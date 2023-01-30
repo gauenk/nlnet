@@ -134,11 +134,14 @@ def run_fold(self,patches,vshape):
     vid = fold.vid / fold.zvid
 
     # -- debug --
-    any_nan = th.any(th.isnan(vid))
+    any_nan = th.any(th.isnan(vid)).item()
     if any_nan:
-        any_fold_nan = th.any(th.isnan(fold.vid))
-        any_zero = th.any(th.abs(fold.zvid)<1e-10)
-        print("[%s] found a nan!: " % __file__,any_nan,any_zero,any_fold_nan)
+        any_fold_nan = th.any(th.isnan(fold.vid)).item()
+        any_patch_nan = th.any(th.isnan(fold.vid)).item()
+        any_zero = th.any(th.abs(fold.zvid)<1e-10).item()
+        print("[%s] found a nan!: " % __file__,any_nan,any_zero,
+              any_fold_nan,any_patch_nan)
+        print(self.search_name)
         exit(0)
 
     # -- timing --
