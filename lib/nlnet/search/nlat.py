@@ -59,18 +59,20 @@ def init_from_cfg(cfg):
 
 def init(cfg):
     return NLSApproxTime(cfg.k,cfg.ps,cfg.ws_r,cfg.ws,cfg.wt,
-                         cfg.nheads,cfg.stride0,cfg.stride1)
+                         cfg.nheads,cfg.stride0,cfg.stride1,
+                         cfg.use_state_update)
 
 class NLSApproxTime(nn.Module):
 
-    def __init__(self, k=7, ps=7, ws_r=3, ws=8, wt=1, nheads=1, stride0=4,stride1=1):
+    def __init__(self, k=7, ps=7, ws_r=3, ws=8, wt=1,
+                 nheads=1, stride0=4, stride1=1, use_state_update=False):
         super().__init__()
         self.k = k
         self.ps = ps
         self.ws = ws
         self.wt = wt
         self.nheads = nheads
-        self.use_update_state = True
+        self.use_state_update = use_state_update
         self.esearch = get_exact_search(k,ps,ws,0,nheads,stride0,stride1)
         self.rsearch = get_refine_search(k,ps,ws_r,ws,nheads,stride0,stride1)
 
@@ -93,7 +95,7 @@ class NLSApproxTime(nn.Module):
         self.esearch.set_flows(flows,vid)
 
     def update_state(self,state,dists,inds):
-        if not(self.use_update_state): return
+        if not(self.use_state_update): return
         state[1] = inds.detach()
 
     # -- Class Logic --

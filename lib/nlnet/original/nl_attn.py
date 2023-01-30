@@ -14,8 +14,9 @@ from dev_basics import flow
 # -- project deps --
 from .proj import ConvQKV
 
+import dnls
 # -- search/normalize/aggregate --
-from .. import search
+# from .. import search
 from .. import normz
 from .. import agg
 
@@ -57,12 +58,14 @@ class NonLocalAttention(nn.Module):
         self.proj_drop = nn.Dropout(attn_cfg.drop_rate_proj)
 
         # -- init attn fxns --
-        self.search = search.init(search_cfg)
+        self.search = dnls.search.init(search_cfg)
         self.normz = normz.init(normz_cfg)
         self.agg = agg.init(agg_cfg)
 
         # -- init vars of interest --
         self.ps = search_cfg.ps
+        self.search_name = search_cfg.search_name
+        self.use_state_update = search_cfg.use_state_update
         self.use_flow = search_cfg.use_flow
         self.stride0 = search_cfg.stride0
         self.dilation = search_cfg.dilation
@@ -91,7 +94,12 @@ class NonLocalAttention(nn.Module):
 
     def run_search(self,q_vid,k_vid,flows,state):
         self.timer.sync_start("search")
-        dists,inds = self.search(q_vid,k_vid,flows,state)
+        if self.search_name == "refine":
+            inds_p = self.inds_rs1(state[0])
+            dists,inds = self.search(q_vid,k_vid,inds_p)
+        else:
+            dists,inds = self.search(q_vid,k_vid,flows.fflow,flows.bflow)
+        self.update_state(state,dists,inds,q_vid.shape)
         self.timer.sync_stop("search")
         return dists,inds
 
@@ -126,7 +134,7 @@ class NonLocalAttention(nn.Module):
         # -- update flow --
         B,T,C,H,W = vid.shape
         if self.use_flow: flows = flow.rescale_flows(flows,H,W)
-        self.search.set_flows(vid,flows)
+        # self.search.set_flows(vid,flows)
 
         # -- extract --
         q_vid,k_vid,v_vid = self.get_qkv(vid)
@@ -152,6 +160,25 @@ class NonLocalAttention(nn.Module):
             self.times.update_times(self.timer)
 
         return vid
+
+    def update_state(self,state,dists,inds,vshape):
+        if not(self.use_state_update): return
+        T,C,H,W = vshape[-4:]
+        nH = (H-1)//self.stride0+1
+        nW = (W-1)//self.stride0+1
+        state[1] = self.inds_rs0(inds.detach(),nH,nW)
+
+    def inds_rs0(self,inds,nH,nW):
+        if not(inds.ndim == 5): return inds
+        rshape = 'b h (T nH nW) k tr -> T nH nW b h k tr'
+        inds = rearrange(inds,rshape,nH=nH,nW=nW)
+        return inds
+
+    def inds_rs1(self,inds):
+        if not(inds.ndim == 7): return inds
+        rshape = 'T nH nW b h k tr -> b h (T nH nW) k tr'
+        inds = rearrange(inds,rshape)
+        return inds
 
     def get_patches(self,vid):
         vid = rearrange(vid,'B T C H W -> (B T) C H W')

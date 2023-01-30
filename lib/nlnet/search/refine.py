@@ -4,6 +4,9 @@ import torch.nn as nn
 import dnls
 from einops import rearrange
 
+from . import state_mod
+from dev_basics.utils import clean_code
+
 def get_search(k,ps,ws_r,ws,nheads,stride0,stride1):
     pt = 1
     oh0,ow0,oh1,ow1 = 0,0,0,0
@@ -27,13 +30,14 @@ def get_search(k,ps,ws_r,ws,nheads,stride0,stride1):
     return search
 
 def init(cfg):
-    return NLSearch(cfg.k,cfg.k_s,cfg.ps,cfg.ws_r,cfg.ws,
-                    cfg.nheads,cfg.stride0,cfg.stride1)
+    return NLSRefine(cfg.k,cfg.k_s,cfg.ps,cfg.ws_r,cfg.ws,
+                     cfg.nheads,cfg.stride0,cfg.stride1)
 
 def init_from_cfg(cfg):
     return init(cfg)
 
-class NLSearch(nn.Module):
+@clean_code.add_methods_from(state_mod)
+class NLSRefine(nn.Module):
 
     def __init__(self, k=7, k_s=50, ps=7, ws_r=1, ws=8,
                  nheads=1, stride0=4, stride1=1):
@@ -42,14 +46,16 @@ class NLSearch(nn.Module):
         self.k_s = k_s
         self.ps = ps
         self.ws = ws
+        self.stride0 = stride0
         self.nheads = nheads
+        self.use_state_update = True
         self.search = get_search(k,ps,ws_r,ws,nheads,stride0,stride1)
 
     def forward(self,vid0,vid1,flows=None,state=None):
-        inds_p = state[0]
+        inds_p = self.unpack_state(state)
         B,T,C,H,W = vid0.shape
         dists,inds = self.search(vid0,vid1,inds_p)
-        state[1] = inds
+        self.update_state(state,dists,inds,vid0.shape)
         return dists,inds
 
     def set_flows(self,vid,flows):

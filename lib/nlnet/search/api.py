@@ -53,7 +53,7 @@ def search_pairs():
              "reflect_bounds":True,"use_k":True,"use_adj":True,
              "search_abs":False,"anchor_self":False,
              "dist_type":"l2","search_name":"nl","use_flow":True,
-             "dilation":1,"stride0_a":8}
+             "dilation":1,"stride0_a":8,"use_state_update":False}
     return pairs
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

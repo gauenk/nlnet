@@ -1,3 +1,4 @@
+
     # -- [A] approx spatial params --
     # (i) exact search with large stride0, stride0_l
     # (ii) upsampling non-local indices to match smaller stride0
@@ -34,12 +35,14 @@
     #    say (27/3)^2 = 81 so K_ap = 8
     # -> How to remove duplicates for [Approximate Temporal Search]?
     #    -> [NA] Post-Process: check indices and remove duplicates before top-K
-    #       -> require checking O(k_ap*ws_ap^2) comparisons
+    #       -> require checking O((k_ap*ws_ap^2)^2) comparisons
     #       -> uses repeated compute.
     #       -> requires expansing k_ap, so this is removed!
+    #       -> this doesnt apply since, why?... idk maybe just expensive.
     #    -> Pick-One: check overlapping (indices,ws_ap)
     #                 and keep non-overlapping subset (indices',ws_ap)
-    #       -> requires O(k_ap) l1 difference values
+    #       -> requires O(k_ap^2) l1 difference values
+    #          -> but we can reduce this to O(k_ap * w_ap^2) instead.
     #       -> no repeat compute
     #       -> will miss good patches
     #    -> Encasing: check overlapping (indices,ws_ap)
@@ -87,7 +90,7 @@
     #       -> require checking O(k_r*ws_ap^2) comparisons
     #       -> uses repeated compute.
     #    -> Pick-One: check overlapping (indices,ws_ap)
-    #                 and keep non-overlapping subset (indices',ws_ap)
+    #                 and keep only non-overlapping subset (indices')
     #       -> requires O(k_r) l1 difference values
     #       -> no repeat compute
     #       -> will miss good patches
@@ -100,4 +103,14 @@
     #       -> will keep good patches
     #       -> requires variable sized search spaces (ws_ap')
     #          -> large (ws_ap') can be split into blocks
+
+We have repeated indices for each approximation:
+-> space
+-> time
+-> layer refinement
+
+We have three strategies to de-dup indices:
+-> post-processing
+-> pick-one
+-> encasing
 

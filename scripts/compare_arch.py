@@ -27,13 +27,14 @@ def main():
     records = cache_io.run_exps(exps,test.run,
                                 name = ".cache_io/compare_arch",
                                 version = "v1",
-                                clear=True,skip_loop=False,
+                                clear=False,skip_loop=False,
                                 enable_dispatch="slurm")
 
     # -- summary --
     print("\n"*3)
     print("-"*5 + " Summary " + "-"*5)
     fields = ['timer_deno','depth','search_menu_name','search_v0','search_v1']
+    records = records.sort_values(by="timer_deno")
     print(records[fields])
 
     # -- details --

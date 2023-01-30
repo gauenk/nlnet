@@ -129,6 +129,7 @@ class SrNet(nn.Module):
     def forward(self, vid, flows=None, states=None):
 
         # -- Input Projection --
+        print(vid.shape)
         b,t,c,h,w = vid.shape
         y = self.input_proj(vid)
         y = self.pos_drop(y)
@@ -136,38 +137,35 @@ class SrNet(nn.Module):
 
         # -- init states --
         if states is None:
-            states = [None for _ in range(2*num_encs+1)]
+            states = [None,None]# for _ in range(2*num_encs+1)]
 
         # -- enc --
         z = y
         encs = []
+        states_i = [states[0],None]
         for i,(enc,down) in enumerate(self.enc_list):
-            # -- create state --
-            states_i = [states[i],states[i+1]]
 
             # -- forward --
-            iH,iW = z.shape[-2:]
             z = enc(z,flows=flows,state=states_i)
             self.iprint("[enc] i: %d" % i,z.shape)
             encs.append(z)
             z = down(z)
             self.iprint("[dow] i: %d" % i,z.shape)
 
+            # -- update state --
+            states_i = [self.down_state(states_i[1]),None]
+
         # -- middle --
         iH,iW = z.shape[-2:]
-        z = self.conv(z,flows=flows)
+        z = self.conv(z,flows=flows,state=states_i)
         self.iprint("[mid]: ",z.shape)
+        states_i = [states_i[1],None]
 
         # -- dec --
         for i,(up,dec) in enumerate(self.dec_list):
 
-            # -- create state --
-            sinds = [i-1+num_encs,i+num_encs,i]
-            states_i = [states[j] for j in sinds]
-
             # -- forward --
             i_rev = (num_encs-1)-i
-            iH,iW = z.shape[-2:]
             z = up(z)
             self.iprint("[up] i: %d" % i,z.shape)
             z = th.cat([z,encs[i_rev]],-3)
@@ -175,9 +173,11 @@ class SrNet(nn.Module):
             z = dec(z,flows=flows,state=states_i)
             self.iprint("[dec] i: %d" % i,z.shape)
 
+            # -- update state --
+            states_i = [self.up_state(states_i[1]),None]
+
         # -- Output Projection --
         y = self.output_proj(z)
-        self.iprint("y.shape: ",y.shape)
 
         # -- residual connection --
         out = vid + y if self.dd_in == 3 else y
@@ -186,6 +186,29 @@ class SrNet(nn.Module):
         self.update_block_times()
 
         return out
+
+    def down_state(self,state):
+        return self.down_inds(state)
+
+    def up_state(self,state):
+        return self.up_inds(state)
+
+    def down_inds(self,inds):
+        if inds is None: return inds
+
+        # -- downsample shape --
+        rshape = 'T H W b h k tr -> b h (T H W) k tr'
+        inds = rearrange(inds[:,::2,::2],rshape)
+
+        # -- downsample values --
+        inds[...,1] = th.div(inds[...,1],2,rounding_mode='floor')
+        inds[...,2] = th.div(inds[...,2],2,rounding_mode='floor')
+
+        return inds
+
+    def up_inds(self,inds):
+        pass
+        return inds
 
     @property
     def max_batch_size(self):

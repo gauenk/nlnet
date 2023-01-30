@@ -32,8 +32,11 @@ class BlockList(nn.Module):
         return str(self.blocklist)
 
     def forward(self, vid, flows=None, state=None):
+        state_b = [state[0],None]
         for blk in self.blocks:
-            vid = blk(vid,flows,state)
+            vid = blk(vid,flows,state_b)
+            state_b = [state_b[1],None]
+        state[1] = state_b[0]
         return vid
 
     def flops(self,h,w):

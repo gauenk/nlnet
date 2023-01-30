@@ -8,9 +8,15 @@ from pathlib import Path
 from functools import partial
 from easydict import EasyDict as edict
 
+# -- searching --
+import dnls
+
 # -- network --
 from .net import SrNet
 from .scaling import Downsample,Upsample # defaults
+# from .menu import extract_menu_cfg,fill_menu
+from .menu import extract_menu_cfg_impl,fill_menu
+
 
 # -- search/normalize/aggregate --
 from .. import search
@@ -37,7 +43,7 @@ def load_model(cfg):
              "arch":arch_pairs(defs),
              "blocklist":blocklist_pairs({}),
              "attn":attn_pairs(defs),
-             "search":search.extract_config(cfg),
+             "search":extract_search_cfg(cfg),
              "normz":normz.extract_config(cfg),
              "agg":agg.extract_config(cfg)}
     device = econfig.optional(cfg,"device","cuda:0")
@@ -51,9 +57,11 @@ def load_model(cfg):
     fields = ["blocklist"]
     blocklists = econfig.cfgs2lists(cfgs.blocklist,defs.nblocklists)
 
-    # -- fill with menu --
+    # -- fill blocks with menu --
     fields = ["attn","search","normz","agg"]
     blocks = fill_menu(cfgs,fields,menu_cfgs)
+
+    # -- fill blocks with blocklists --
     dfill = {"attn":["nheads","embed_dim"],"search":["nheads"]}
     fill_blocks(blocks,blocklists,dfill)
 
@@ -152,88 +160,26 @@ def arch_pairs(defs):
     }
     return pairs  | defs
 
+def extract_search_cfg(cfg):
+    cfg = dnls.search.extract_config(cfg)
+    cfg = cfg | {"use_flow":True}
+    return cfg
+
 def extract_menu_cfg(_cfg,depth):
 
     """
+
     Extract unique values for each _block_
     This can get to sizes ~=50
     So a menu is used to simplify setting each of the 50 parameters.
     These "fill" the fixed configs above.
+
     """
 
     cfg = econfig.extract_pairs({'search_menu_name':'full',
                                  "search_v0":"exact",
                                  "search_v1":"refine"},_cfg)
-
-    # -- unpack attn name --
-    # ...
-
-    # -- unpack search name --
-    # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
-    search_menu_name = cfg.search_menu_name
-    v0,v1 = cfg.search_v0,cfg.search_v1
-    search_names = search_menu(search_menu_name,depth,v0,v1)
-
-    # -- unpack normz name --
-    # ...
-
-    # -- unpack agg name --
-    # ...
-
-    # -- grouped pairs --
-    pairs = {"search_name":search_names}
-    L = len(search_names)
-
-    # -- format return value; a list of pydicts --
-    blocks = []
-    for l in range(L):
-        block_l = edict()
-        for key,val_list in pairs.items():
-            block_l[key] = val_list[l]
-        blocks.append(block_l)
-
-    return blocks
-
-def search_menu(menu_name,depth,v0,v1):
-    nblocks = 2*np.sum(depth[:-1]) + depth[-1]
-
-    if menu_name == "full":
-        return [v0,]*nblocks
-    elif menu_name == "one":
-        return [v0,] + [v1,]*(nblocks-1)
-    elif menu_name == "first":
-        names = []
-        for depth_i in depth:
-            names_i = [v0,] + [v1,]*(depth_i-1)
-            names.append(names_i)
-        return names
-    elif menu_name == "nth":
-        names = []
-        for i in range(nblocks):
-            if (i % menu_n == 0) or i == 0:
-                names.append(v0)
-            else:
-                names.append(v1)
-        return names
-    else:
-        raise ValeError("Uknown search type in menu [%s]" % menu_name)
-
-def fill_menu(_cfgs,fields,menu_cfgs):
-
-    # -- fields to fill --
-    mfields = {"attn":[],"search":["search_name"],"normz":[],"agg":[],}
-
-    # -- filling --
-    cfgs = []
-    for menu_cfg in menu_cfgs:
-        cfgs_m = edict()
-        for field in fields:
-            cfg_f = dcopy(_cfgs[field])
-            for fill_key in mfields[field]:
-                cfg_f[fill_key] = menu_cfg[fill_key]
-            cfgs_m[field] = cfg_f
-        cfgs.append(cfgs_m)
-    return cfgs
+    return extract_menu_cfg_impl(cfg,depth)
 
 def fill_blocks(blocks,blocklists,fill_pydict):
     start,stop = 0,0
@@ -245,3 +191,4 @@ def fill_blocks(blocks,blocklists,fill_pydict):
             for field,fill_fields in fill_pydict.items():
                 for fill_field in fill_fields:
                     block[field][fill_field] = blocklist[fill_field]
+

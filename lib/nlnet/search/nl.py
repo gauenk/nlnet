@@ -3,6 +3,10 @@ import torch as th
 import torch.nn as nn
 from einops import rearrange
 
+from . import state_mod
+from dev_basics.utils import clean_code
+
+
 def get_search(k,ps,ws,wt,nheads,stride0,stride1):
     pt = 1
     dil = 1
@@ -30,12 +34,15 @@ def init_from_cfg(cfg):
 
 def init(cfg):
     return NLSearch(cfg.k,cfg.ps,cfg.ws,cfg.wt,cfg.nheads,
-                    cfg.stride0,cfg.stride1,cfg.dilation,cfg.use_flow)
+                    cfg.stride0,cfg.stride1,cfg.dilation,
+                    cfg.use_flow,cfg.use_state_update)
 
+@clean_code.add_methods_from(state_mod)
 class NLSearch(nn.Module):
 
     def __init__(self, k=7, ps=7, ws=8, wt=1, nheads=1,
-                 stride0=4, stride1=1, dilation=1, use_flow=True):
+                 stride0=4, stride1=1, dilation=1, use_flow=True,
+                 use_state_update=False):
         super().__init__()
         self.k = k
         self.ps = ps
@@ -47,22 +54,18 @@ class NLSearch(nn.Module):
         self.nheads = nheads
         self.dilation = dilation
         self.use_flow = use_flow
-        self.use_update_state = True
+        self.use_state_update = use_state_update
         self.search = get_search(k,ps,ws,wt,nheads,stride0,stride1)
 
     # -- Model API --
     def forward(self,vid0,vid1,flows=None,state=None):
         B,T,C,H,W = vid0.shape
         dists,inds = self.search(vid0,vid1)
-        self.update_state(state,dists,inds)
+        self.update_state(state,dists,inds,vid0.shape)
         return dists,inds
 
     def set_flows(self,vid,flows):
         self.search.set_flows(flows,vid)
-
-    def update_state(self,state,dists,inds):
-        if not(self.use_update_state): return
-        state[1] = inds.detach()
 
     # -- Comparison API --
     def setup_compare(self,vid,flows,aflows,inds):
