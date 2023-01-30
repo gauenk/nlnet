@@ -220,7 +220,7 @@ class LitModel(pl.LightningModule):
         self.sample_noisy(batch)
 
         # -- denoise --
-        index = int(batch['index'][0].item())
+        index = float(batch['index'][0].item())
         noisy,clean = batch['noisy']/255.,batch['clean']/255.
 
         # -- forward --
