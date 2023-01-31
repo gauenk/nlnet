@@ -27,11 +27,12 @@ def main():
     # exps = [approx_exps[0]]
     # exps = [approx_exps[1]]
     # exps = [approx_exps[2]]
-    exps = [approx_exps[3]]
+    # exps = [approx_exps[3]]
     # exps = [exact_exps[0]]
+    exps = [exact_exps[0]]
 
     def clear_fxn(num,cfg):
-        return True
+        return False
     records = cache_io.run_exps(exps,train.run,
                                 name = ".cache_io/train_baseline",
                                 version = "v1",
