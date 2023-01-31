@@ -24,12 +24,15 @@ def main():
     approx_exps = cache_io.get_exps("exps/train_baseline/first_grid.cfg")
     exact_exps = cache_io.get_exps("exps/train_baseline/exact_grid.cfg")
     exps = approx_exps + exact_exps
+    # for exp in exact_exps:
+    #     print(exp.ws,exp.k,exp.wt)
+    # exit(0)
     # exps = [approx_exps[0]]
     # exps = [approx_exps[1]]
     # exps = [approx_exps[2]]
     # exps = [approx_exps[3]]
     # exps = [exact_exps[0]]
-    exps = [exact_exps[0]]
+    exps = [exact_exps[2]]
 
     def clear_fxn(num,cfg):
         return False
