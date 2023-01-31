@@ -26,7 +26,9 @@ def main():
     exps = approx_exps + exact_exps
     # exps = [approx_exps[0]]
     # exps = [approx_exps[1]]
-    exps = [exact_exps[0]]
+    # exps = [approx_exps[2]]
+    exps = [approx_exps[3]]
+    # exps = [exact_exps[0]]
 
     def clear_fxn(num,cfg):
         return True
