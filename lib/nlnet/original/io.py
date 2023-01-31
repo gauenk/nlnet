@@ -43,7 +43,7 @@ def load_model(cfg):
              "arch":arch_pairs(defs),
              "blocklist":blocklist_pairs({}),
              "attn":attn_pairs(defs),
-             "search":extract_search_cfg(cfg),
+             "search":search.extract_config(cfg),
              "normz":normz.extract_config(cfg),
              "agg":agg.extract_config(cfg)}
     device = econfig.optional(cfg,"device","cuda:0")
@@ -160,13 +160,12 @@ def arch_pairs(defs):
     }
     return pairs  | defs
 
-def extract_search_cfg(cfg):
-    cfg = dnls.search.extract_config(cfg)
-    cfg = cfg | {"use_flow":True,"scale_s":2,"scale_st":2,
-                 "kr_t":-1,"wr_t":-1,
-                 "kr_s":-1,"wr_s":-1,
-                 "kr_st":-1,"wr_st":-1}
-    return cfg
+# def extract_search_cfg(cfg):
+#     cfg = dnls.search.extract_config(cfg)
+#     cfg = cfg | {"use_flow":True,"scale":2,
+#                  "kr_t":-1,"wr_t":-1,
+#                  "kr_s":-1,"wr_s":-1}
+#     return cfg
 
 def extract_menu_cfg(_cfg,depth):
 

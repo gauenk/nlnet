@@ -1,4 +1,8 @@
 
+# -- dnls --
+import torch as th
+import dnls
+
 # -- modules --
 import importlib
 
@@ -27,33 +31,47 @@ def init_search(cfg):
 
     # -- unpack --
     econfig.set_cfg(cfg)
-    cfgs = econfig({"search":search_pairs()})
+    cfg = econfig.extract_pairs(search_pairs(cfg),cfg)
     if econfig.is_init == True: return
-    cfg = cfgs.search
 
     # -- create module --
-    modules = {"exact":"nl","approx_t":"nlat","approx_s":"nlas",
-               "approx_st":"nlas"}
+    print(cfg.search_name)
+    dnls_names = ["exact","nlat","nlas","approx_t","approx_s","approx_st","nlast",
+                  "nl","nls","refine","refinement"]
+    if cfg.search_name in dnls_names:
+        print("dnls.")
+        return load_dnls(cfg)
+    else:
+        print("local.")
+        return load_local(cfg)
+
+def load_dnls(search_cfg):
+    return dnls.search.init(search_cfg)
+
+def load_local(cfg):
+    modules = {"nat":"nat"}
     if cfg.search_name in modules:
         mname = modules[cfg.search_name]
     else:
         mname = cfg.search_name
-    module = importlib.import_module("nlnet.search."+mname)
-    search_fxn = getattr(module,'init')(cfg)
-    return search_fxn
+    return importlib.import_module("nlnet.search.%s" % mname).init(cfg)
 
 def init(cfg):
     return init_search(cfg)
 
-def search_pairs():
-    pairs = {"ps":7,"pt":1,"k":10,"ws_r":1,"k_s":10,
-             "ws":21,"wt":0,"exact":False,"rbwd":True,
+def search_pairs(cfg):
+    # pairs0 = dnls.search.extract_config(cfg)
+    pairs0 = {}
+    pairs1 = {"ws":21,"wt":0,"ps":7,"k":10,
+             "wr_s":1,"kr_s":10,"wr_t":1,"kr_t":10,"scale":2,
+             "pt":1,"exact":False,"rbwd":True,     
              "nftrs_per_head":-1,"nchnls":-1,
              "nheads":1,"stride0":4,"stride1":1,
              "reflect_bounds":True,"use_k":True,"use_adj":True,
              "search_abs":False,"anchor_self":False,
              "dist_type":"l2","search_name":"nl","use_flow":True,
-             "dilation":1,"stride0_a":8,"use_state_update":False}
+             "dilation":1,"use_state_update":False}
+    pairs = pairs0 | pairs1
     return pairs
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

@@ -20,14 +20,17 @@ def main():
     verbose = True
     pid = os.getpid()
     print("PID: ",pid)
+    def clear_fxn(num,cfg):
+        return False
+        # return cfg.search_v0 == "approx_st"
 
     # -- records --
     cfg_file = "exps/compare_arch.cfg"
     exps = cache_io.get_exps(cfg_file)
     records = cache_io.run_exps(exps,test.run,
                                 name = ".cache_io/compare_arch",
-                                version = "v1",
-                                clear=True,skip_loop=False,
+                                version = "v1",clear_fxn=clear_fxn,
+                                clear=False,skip_loop=False,
                                 enable_dispatch="slurm")
 
     # -- summary --

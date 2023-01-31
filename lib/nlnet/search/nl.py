@@ -61,7 +61,7 @@ class NLSearch(nn.Module):
     def forward(self,vid0,vid1,flows=None,state=None):
         B,T,C,H,W = vid0.shape
         dists,inds = self.search(vid0,vid1)
-        self.update_state(state,dists,inds,vid0.shape)
+        # self.update_state(state,dists,inds,vid0.shape)
         return dists,inds
 
     def set_flows(self,vid,flows):

@@ -22,31 +22,39 @@ def run(cfg):
     set_seed(cfg.seed)
     name = cfg.search_name
     device = "cuda:0"
+    B = 1
+    F_HD = cfg.nftrs_per_head
+    T = cfg.nframes
+    HD = cfg.nheads
+    H = cfg.H
+    W = cfg.W
     F = cfg.nftrs_per_head * cfg.nheads
 
     # -- data --
-    vid = th.randn((1,cfg.nframes,F,cfg.H,cfg.W),device=device,dtype=th.float32)
+    vid = th.randn((B,cfg.nframes,F,cfg.H,cfg.W),device=device,dtype=th.float32)
 
     # -- run optial flow --
     flows = flow.orun(vid,False)
-    aflows = dnls.nn.ofa.run(flows,stride0=cfg.stride0)
+    fflow,bflow = flows.fflow,flows.bflow
+    aflows = dnls.nn.accumulate_flow(flows,stride0=cfg.stride0)
+    afflow,abflow = aflows.fflow,aflows.bflow
 
     # -- get the inds --
-    nl_search = api.nl.init(cfg)
-    _,inds = nl_search(vid,vid)
+    nl_search = dnls.search.NonLocalSearch(cfg.ws,cfg.wt,cfg.ps,cfg.k,nheads=cfg.nheads)
+    _,inds = nl_search(vid,vid,fflow,bflow)
     th.cuda.synchronize()
 
     # -- setup comparison function --
     search = api.init(cfg)
-    search_fxn = search.setup_compare(vid,flows,aflows,inds)
+    search_fxn = dnls.search.utils.search_wrap(cfg.search_name,search)
+    # search_fxn = search.setup_compare(vid,flows,aflows,inds)
 
     # -- prepare-run -
     res = {"flops":[],"radius":[],"time":[],"mem_res":[],"mem_alloc":[],"radius":[]}
-    kwargs = {"inds":inds,"flows":flows,"aflows":aflows}
-    res['flops'] = search.flops(1,F,cfg.H,cfg.W)/(1.*10**9)
+    res['flops'] = search.flops(B,T,HD,F_HD,cfg.H,cfg.W)
     res['radius'] = search.radius(cfg.H,cfg.W)
     th.cuda.synchronize()
-    search_fxn(vid,vid)
+    search_fxn(vid,vid,fflow,bflow,inds,afflow,abflow)
     th.cuda.synchronize()
 
     # -- run --
@@ -54,7 +62,7 @@ def run(cfg):
     timer = ExpTimer(True)
     with MemIt(memer,name):
         with TimeIt(timer,name):
-            search_fxn(vid,vid)
+            search_fxn(vid,vid,fflow,bflow,inds,afflow,abflow)
 
     # -- unpack --
     res['time'] = timer[name]
