@@ -24,7 +24,8 @@ from .. import normz
 from .. import agg
 
 # -- io --
-from ..utils import model_io
+# from ..utils import model_io
+from dev_basics import arch_io
 
 # -- configs --
 from dev_basics.configs import ExtractConfig
@@ -84,8 +85,8 @@ def load_model(cfg):
 def load_pretrained(model,cfg):
     if cfg.pretrained_load:
         print("Loading model: ",cfg.pretrained_path)
-        model_io.load_checkpoint(model,cfg.pretrained_path,
-                                 cfg.pretrained_root,cfg.pretrained_type)
+        arch_io.load_checkpoint(model,cfg.pretrained_path,
+                                cfg.pretrained_root,cfg.pretrained_type)
 
 def create_upsample_cfg(bcfgs):
     cfgs = []
