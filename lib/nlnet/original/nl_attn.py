@@ -1,4 +1,11 @@
 
+"""
+
+TODO: refactor module to split steps into their own.
+This makes benchmarking _much_ easiery by using hooks.
+
+"""
+
 # -- torch network deps --
 import torch as th
 import torch.nn as nn

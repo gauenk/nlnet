@@ -27,9 +27,7 @@ from .utils import optional
 
 def load_model(cfg):
     mtype = optional(cfg,'model_type','nlnet')
-    if mtype == "nlnet":
+    if mtype in ["nlnet","original"]:
         return original.load_model(cfg)
-    elif mtype == "bidir":
-        return bidir.load_model(cfg)
     else:
         raise ValueError(f"Uknown model type [{mtype}]")
