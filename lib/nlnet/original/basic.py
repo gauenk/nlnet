@@ -23,17 +23,21 @@ class BlockList(nn.Module):
     def __init__(self, btype, blocklist, blocks):
         super().__init__()
         self.blocklist = blocklist
-        self.blocks = nn.ModuleDict([
-            ["block_%d" % d,Block(btype,blocklist,blocks[d])]
-            for d in range(blocklist.depth)
-        ])
+        self.blocks = nn.ModuleList(
+            [Block(btype,blocklist,blocks[d])
+             for d in range(blocklist.depth)])
+        # self.blocks = nn.ModuleDict([
+        #     ["block_%d" % d,Block(btype,blocklist,blocks[d])]
+        #     for d in range(blocklist.depth)
+        # ])
 
     def extra_repr(self) -> str:
         return str(self.blocklist)
 
     def forward(self, vid, flows=None, state=None):
         state_b = [state[0],None]
-        for name,blk in self.blocks.items():
+        # for name,blk in self.blocks.items():
+        for blk in self.blocks:
             vid = blk(vid,flows,state_b)
             state_b = [state_b[1],None]
         state[1] = state_b[0]

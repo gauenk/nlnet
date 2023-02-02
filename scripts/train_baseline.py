@@ -1,6 +1,6 @@
 """
 
-Train a set of Baseline Networks
+Train a set of baseline Networks
 
 """
 
