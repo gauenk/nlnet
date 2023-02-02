@@ -1,6 +1,6 @@
 """
 
-Train a set of baseline Networks
+Train a set of depths Networks
 
 """
 
@@ -22,10 +22,11 @@ def main():
     print("PID: ",pid)
 
     # -- records --
-    approx_exps = cache_io.get_exps("exps/train_baseline/first_grid.cfg")
-    # exact_exps = cache_io.get_exps("exps/train_baseline/exact_grid.cfg")
+    # approx_exps = cache_io.get_exps("exps/train_depths/first_grid.cfg")
+    exact_exps = cache_io.get_exps("exps/train_depths/exact_grid.cfg")
     # exps = approx_exps + exact_exps
-    exps = approx_exps
+    exps = exact_exps
+    # exps = approx_exps
     # for exp in exact_exps:
     #     print(exp.ws,exp.k,exp.wt)
     # exit(0)
@@ -39,11 +40,10 @@ def main():
     # exps = [exact_exps[4]]
 
     # -- launch exp --
-    train_run = partial(train.run,nepochs=100)
     def clear_fxn(num,cfg):
         return True
-    records = cache_io.run_exps(exps,train_run,
-                                name = ".cache_io/train_baseline",
+    records = cache_io.run_exps(exps,train.run,
+                                name = ".cache_io/train_depths",
                                 version = "v1",
                                 clear=False,skip_loop=False,
                                 clear_fxn=clear_fxn,
