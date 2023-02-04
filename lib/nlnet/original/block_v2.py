@@ -18,7 +18,7 @@ from . import attn_mods
 # from dev_basics.utils import clean_code
 from .shared import get_norm_layer
 from .mlps import init_mlp
-
+from .sk_conv import SKUnit
 
 class BlockV2(nn.Module):
 
@@ -39,55 +39,71 @@ class BlockV2(nn.Module):
 
         # -- modify embed_dim --
         block.attn.embed_dim *= mult
+        edim = block.attn.embed_dim * blocklist.nheads
+        self.edim = edim
 
-        # -- init attn --
+        # -- init non-local attn --
         attn = block.attn
         search = block.search
         normz = block.normz
         agg = block.agg
         self.attn = NonLocalAttention(attn,search,normz,agg)
 
-        # -- init layer --
-        self.norm1 = norm_layer(self.dim*mult)
-        self.drop_path = DropPath(dpath) if dpath > 0. else nn.Identity()
-        self.norm2 = norm_layer(self.dim*mult)
-        self.mlp = init_mlp(self.block_mlp,self.mlp_ratio,
-                            self.drop_mlp_rate,self.dim*mult)
+        # -- init local attn --
+        self.sk_attn = SKUnit(in_features=edim,
+                              out_features=edim,M=2,G=8,r=2)
+
+        # -- init combining layers [local vs non-local select] --
+        vector_length = 32
+        self.fc_share = nn.Linear(in_features=edim,out_features=vector_length)
+        self.fc_0 = nn.Linear(in_features=vector_length,out_features=edim)
+        self.fc_1 = nn.Linear(in_features=vector_length,out_features=edim)
+        self.softmax = nn.Softmax(dim=1)
 
     def extra_repr(self) -> str:
         return str(self.blocklist)
 
     def forward(self, vid, flows=None, state=None):
 
-        # -=-=-=-=-=-=-=-=-
-        #    Attn Layer
-        # -=-=-=-=-=-=-=-=-
+        # -=-=-=-=-=-=-=-=-=-=-=-=-
+        #       Init/Unpack
+        # -=-=-=-=-=-=-=-=-=-=-=-=-
 
         # -- create shortcut --
         B,T,C,H,W = vid.shape
         shortcut = vid
 
-        # -- norm layer --
-        vid = vid.view(B*T,C,H*W)
-        vid = self.norm1(vid.transpose(1,2)).transpose(1,2)
-        vid = vid.view(B, T, C, H, W)
-
-        # -- run attention --
-        vid = self.attn(vid, flows=flows, state=state)
-
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-        #    Fully Connected Layer
+        #    Non-Local Attn Layer
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-        # -- view for ffn --
-        vid = vid.view(B*T,C,H*W).transpose(1,2)
-        shortcut = shortcut.view(B*T,C,H*W).transpose(1,2)
+        nl_vid = self.attn(vid, flows=flows, state=state)
 
-        # -- FFN --
-        vid = shortcut + self.drop_path(vid)
-        vid = vid + self.drop_path(self.mlp(self.norm2(vid)))
-        vid = vid.transpose(1,2).view(B,T,C,H,W)
+        # -=-=-=-=-=-=-=-=-=-=-=-=-
+        #     Local Attn Layer
+        # -=-=-=-=-=-=-=-=-=-=-=-=-
+
+        sk_vid = self.sk_attn(vid)
+
+        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+        #           Combo
+        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+        combo_vid = th.stack((nl_vid,sk_vid),dim=1)
+        weights = self.compute_pair_weights(combo_vid)
+        vid = (combo_vid*weights).sum(dim=1)
+
         return vid
+
+    def compute_pair_weights(self,combo):
+        U = th.sum(combo,dim=1)
+        attn_vec = U.mean(-1).mean(-1)
+        attn_vec = self.fc_share(attn_vec)
+        attn_vec_0 = self.fc_0(attn_vec)
+        attn_vec_1 = self.fc_1(attn_vec)
+        vector = th.stack((attn_vec_0,attn_vec_1),dim=1)
+        vector = self.softmax(vector)[...,None,None]
+        return vector
 
     def flops(self,H,W):
         flops = 0

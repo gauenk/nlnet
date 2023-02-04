@@ -16,6 +16,7 @@ import cache_io
 
 # -- network configs --
 from dev_basics.trte import test
+from dev_basics.utils.misc import nice_pretrained_path
 
 def main():
 
@@ -30,7 +31,7 @@ def main():
     exps = approx_exps + exact_exps
     # exps = exact_exps
     def clear_fxn(num,cfg):
-        return False
+        return True
     results = cache_io.run_exps(exps,test.run,
                                 name = ".cache_io/test_baseline",
                                 version = "v1",
@@ -40,8 +41,10 @@ def main():
     # -- summary --
     print("\n"*3)
     print("-"*5 + " Summary " + "-"*5)
+
     # gfields = ['ws','wt','k','search_menu_name','search_v0','search_v1']
-    gfields = ['ws','wt','k','search_v0','search_v1']
+    results['pretrained_path'] = nice_pretrained_path(results['pretrained_path'])
+    gfields = ['ws','wt','k','search_v0','search_v1','pretrained_path']
     afields = ['psnrs','ssims','strred','timer_deno']
     agg_fxn = lambda x: np.mean(np.stack(x))
     summary = results.groupby(gfields).agg({k:agg_fxn for k in afields})

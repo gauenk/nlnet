@@ -23,9 +23,9 @@ def main():
 
     # -- records --
     approx_exps = cache_io.get_exps("exps/train_baseline/first_grid.cfg")
-    # exact_exps = cache_io.get_exps("exps/train_baseline/exact_grid.cfg")
+    exact_exps = cache_io.get_exps("exps/train_baseline/exact_grid.cfg")
     # exps = approx_exps + exact_exps
-    exps = approx_exps
+    # exps = approx_exps
     # for exp in exact_exps:
     #     print(exp.ws,exp.k,exp.wt)
     # exit(0)
@@ -36,7 +36,7 @@ def main():
     # exps = [exact_exps[0]]
     # exps = [exact_exps[1]]
     # exps = [exact_exps[2]]
-    # exps = [exact_exps[4]]
+    exps = [exact_exps[0]]
 
     # -- launch exp --
     train_run = partial(train.run,nepochs=100)

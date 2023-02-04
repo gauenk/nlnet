@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from einops import rearrange
 
 
 class SKConv(nn.Module):
@@ -104,9 +105,13 @@ class SKUnit(nn.Module):
                 nn.Conv2d(in_features, out_features, 1, stride=stride),
                 nn.BatchNorm2d(out_features)
             )
-    def forward(self, x):
-        fea = self.feas(x)
-        return fea + self.shortcut(x)
+    def forward(self, vid):
+        B,T,C,H,W = vid.shape
+        vid = rearrange(vid,'b t c h w -> (b t) c h w')
+        fea = self.feas(vid)
+        vid = fea + self.shortcut(vid)
+        vid = rearrange(vid,'(b t) c h w -> b t c h w',b=B)
+        return vid
 
 if __name__ == "__main__":
     net = SKUnit(in_features=64,out_features=64,M=2,G=8,r=2).cuda()
