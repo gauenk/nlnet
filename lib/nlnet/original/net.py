@@ -15,7 +15,8 @@ from functools import partial
 from timm.models.layers import trunc_normal_
 
 # -- project deps --
-from .basic import BlockList
+# from .basic import BlockList
+from .blocklist import BlockList
 from .scaling import Downsample,Upsample
 from .proj import InputProj,InputProjSeq,OutputProj,OutputProjSeq
 from ..utils.model_utils import apply_freeze,cfgs_slice

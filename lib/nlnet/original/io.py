@@ -144,7 +144,7 @@ def attn_pairs(defs):
 
 def blocklist_pairs(defs):
     shape = {"depth":None,"nheads":None,
-             "nblocklists":None,"freeze":False}
+             "nblocklists":None,"freeze":False,"block_version":"v1"}
     training = {"mlp_ratio":4.,"embed_dim":1,
                 "block_mlp":"mlp","norm_layer":"LayerNorm",
                 "drop_rate_mlp":0.,"drop_rate_path":0.1}

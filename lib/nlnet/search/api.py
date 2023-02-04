@@ -64,7 +64,7 @@ def search_pairs(cfg):
     pairs0 = {}
     pairs1 = {"ws":21,"wt":0,"ps":7,"k":10,
              "wr_s":1,"kr_s":10,"wr_t":1,"kr_t":10,"scale":2,
-             "pt":1,"exact":False,"rbwd":True,     
+             "pt":1,"exact":False,"rbwd":True,
              "nftrs_per_head":-1,"nchnls":-1,
              "nheads":1,"stride0":4,"stride1":1,
              "reflect_bounds":True,"use_k":True,"use_adj":True,

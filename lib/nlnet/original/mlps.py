@@ -8,6 +8,22 @@ from einops import rearrange,repeat
 import math
 
 
+def init_mlp(block_mlp,mlp_ratio,drop,dim):
+    act_layer = nn.GELU
+    mlp_hidden_dim = int(dim*mlp_ratio)
+    if block_mlp in ['ffn','mlp']:
+        mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim,
+                       act_layer=act_layer, drop=drop)
+    elif block_mlp=='leff':
+        mlp =  LeFF(dim,mlp_hidden_dim,act_layer=act_layer, drop=drop)
+
+    elif block_mlp=='fastleff':
+        mlp =  FastLeFF(dim,mlp_hidden_dim,act_layer=act_layer, drop=drop)
+    else:
+        raise Exception("FFN error!")
+    return mlp
+
+
 class FastLeFF(nn.Module):
 
     def __init__(self, dim=32, hidden_dim=128, act_layer=nn.GELU,drop = 0.):
