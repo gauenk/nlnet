@@ -69,7 +69,8 @@ def lit_pairs():
              "isize":None,"bw":False,"lr_init":1e-3,
              "lr_final":1e-8,"weight_decay":1e-4,
              "nepochs":0,"task":"denoising","uuid":"",
-             "scheduler":"default"}
+             "scheduler":"default","step_lr_size":5,
+             "step_lr_gamma":0.1}
     return pairs
 
 def sim_pairs():
@@ -123,7 +124,8 @@ class LitModel(pl.LightningModule):
             scheduler = ExponentialLR(optim,gamma=gamma) # (.995)^50 ~= .78
         elif self.scheduler in ["step","steplr"]:
             StepLR = th.optim.lr_scheduler.StepLR
-            scheduler = StepLR(optim,step_size=5,gamma=0.1)
+            scheduler = StepLR(optim,step_size=self.step_lr_size,
+                               gamma=self.step_lr_gamma)
         elif self.scheduler in ["cos"]:
             CosAnnLR = th.optim.lr_scheduler.CosineAnnealingLR
             T0,Tmult = 1,1
