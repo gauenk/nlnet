@@ -40,6 +40,7 @@ from dev_basics.utils.timer import ExpTimer,ExpTimerList
 from . import attn_mods
 from dev_basics.utils import clean_code
 
+
 @clean_code.add_methods_from(attn_mods)
 class NonLocalAttention(nn.Module):
     def __init__(self, attn_cfg, search_cfg, normz_cfg, agg_cfg):
@@ -106,15 +107,6 @@ class NonLocalAttention(nn.Module):
             dists,inds = self.search(q_vid,k_vid,inds_p)
         else:
             dists,inds = self.search(q_vid,k_vid,flows.fflow,flows.bflow)
-
-        # -- viz --
-        # args = th.where(inds == -1)
-        # print(inds[0,0,1005])
-        # for i in range(3):
-        #     print(i,inds[...,i].min(),inds[...,i].max())
-        # print(th.any(th.isnan(dists)))
-        # print(dists[0,0,0])
-
         self.update_state(state,dists,inds,q_vid.shape)
         self.timer.sync_stop("search")
         return dists,inds

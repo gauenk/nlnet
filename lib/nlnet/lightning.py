@@ -123,6 +123,8 @@ class LitModel(pl.LightningModule):
             ExponentialLR = th.optim.lr_scheduler.ExponentialLR
             scheduler = ExponentialLR(optim,gamma=gamma) # (.995)^50 ~= .78
         elif self.scheduler in ["step","steplr"]:
+            args = (self.step_lr_size,self.step_lr_gamma)
+            print("[Scheduler]: StepLR(%d,%2.2f)" % args)
             StepLR = th.optim.lr_scheduler.StepLR
             scheduler = StepLR(optim,step_size=self.step_lr_size,
                                gamma=self.step_lr_gamma)
