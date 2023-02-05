@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def default_conv(in_channels, out_channels, kernel_size,stride=1, bias=True):
+def conv(in_channels, out_channels, kernel_size,stride=1, bias=True):
     return nn.Conv2d(
         in_channels, out_channels, kernel_size,
         padding=(kernel_size//2),stride=stride, bias=bias)
