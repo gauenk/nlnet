@@ -23,9 +23,11 @@ def main():
 
     # -- records --
     # approx_exps = cache_io.get_exps("exps/train_depths/first_grid.cfg")
-    exact_exps = cache_io.get_exps("exps/train_depths/exact_grid.cfg")
+    # exact_exps = cache_io.get_exps("exps/train_depths/exact_grid.cfg")
+    exact_exps = cache_io.get_exps("exps/train_depths/exact_grid_v2.cfg")
     # exps = approx_exps + exact_exps
-    exps = exact_exps
+    # exps = exact_exps
+    exps = [exact_exps[4]]
     # exps = approx_exps
     # for exp in exact_exps:
     #     print(exp.ws,exp.k,exp.wt)
