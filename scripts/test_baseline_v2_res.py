@@ -31,7 +31,7 @@ def main():
     # exps = approx_exps + exact_exps
     exps = exact_exps
     def clear_fxn(num,cfg):
-        return True
+        return False
     results = cache_io.run_exps(exps,test.run,
                                 name = ".cache_io/test_baseline_v2_res",
                                 version = "v1",
@@ -44,11 +44,15 @@ def main():
 
     # gfields = ['ws','wt','k','search_menu_name','search_v0','search_v1']
     results['pretrained_path'] = nice_pretrained_path(results['pretrained_path'])
-    gfields = ['ws','wt','k','search_v0','search_v1','pretrained_path']
+    gfields = ['ws','wt','k','search_menu_name','search_v1','pretrained_path']
     afields = ['psnrs','ssims','strred','timer_deno']
     agg_fxn = lambda x: np.mean(np.stack(x))
     summary = results.groupby(gfields).agg({k:agg_fxn for k in afields})
     summary = summary.reset_index()
+    renames = {"search_menu_name":"smn"}
+    summary = summary.rename(columns=renames)
+    for key,val in renames.items():
+        gfields[gfields.index(key)] = val
     print(summary)
     print(summary[afields+gfields])
 
