@@ -10,7 +10,7 @@ import os
 # -- caching results --
 import cache_io
 
-# -- network configs --
+# -- testing --
 from dev_basics.trte import test
 
 def main():
