@@ -42,9 +42,10 @@ def main():
     # exps = [exact_exps[4]]
 
     # -- launch exp --
+    train_run = partial(train.run,nepochs=100)
     def clear_fxn(num,cfg):
         return True
-    records = cache_io.run_exps(exps,train.run,
+    records = cache_io.run_exps(exps,train_run,
                                 name = ".cache_io/train_depths",
                                 version = "v1",
                                 clear=False,skip_loop=False,
