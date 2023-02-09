@@ -122,8 +122,8 @@ def shared_defaults(_cfg):
     cfg = econfig.extract_pairs(pairs,_cfg)
     cfg.nblocklists = 2*(len(cfg.depth)-1)+1
     cfg.nblocks = 2*np.sum(cfg.depth[:-1]) * cfg.depth[-1]
-    _cfg.nblocklists = 2*(len(cfg.depth)-1)+1
-    _cfg.nblocks = 2*np.sum(cfg.depth[:-1]) * cfg.depth[-1]
+    # _cfg.nblocklists = 2*(len(cfg.depth)-1)+1
+    # _cfg.nblocks = 2*np.sum(cfg.depth[:-1]) * cfg.depth[-1]
     return cfg
 
 def io_pairs():
