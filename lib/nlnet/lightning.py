@@ -70,7 +70,7 @@ def lit_pairs():
              "lr_final":1e-8,"weight_decay":1e-4,
              "nepochs":0,"task":"denoising","uuid":"",
              "scheduler":"default","step_lr_size":5,
-             "step_lr_gamma":0.1}
+             "step_lr_gamma":0.1,"flow_epoch":None}
     return pairs
 
 def sim_pairs():
@@ -111,6 +111,11 @@ class LitModel(pl.LightningModule):
         noisy = self.sim_model.run_rgb(clean)
         batch['noisy'] = noisy
 
+    def update_flow(self):
+        if self.flow_epoch is None: return
+        if self.current_epoch >= self.flow_epoch:
+            self.flow = True
+
     def configure_optimizers(self):
         optim = th.optim.Adam(self.parameters(),lr=self.lr_init,
                               weight_decay=self.weight_decay)
@@ -143,6 +148,9 @@ class LitModel(pl.LightningModule):
 
         # -- sample noise from simulator --
         self.sample_noisy(batch)
+
+        # -- update flow --
+        self.update_flow()
 
         # -- each sample in batch --
         loss = 0 # init @ zero
