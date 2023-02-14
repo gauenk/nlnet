@@ -4,7 +4,7 @@ from einops import rearrange
 
 
 def init(cfg):
-    return SoftmaxNormalize(cfg.k_n,cfg.scale,cfg.normz_drop_rate)
+    return SoftmaxNormalize(cfg.k_n,cfg.normz_scale,cfg.normz_drop_rate)
 
 class SoftmaxNormalize(nn.Module):
 

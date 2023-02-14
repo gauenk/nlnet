@@ -42,7 +42,7 @@ def init(cfg):
     return init_normz(cfg)
 
 def normz_pairs():
-    pairs = {"scale":10,
+    pairs = {"normz_scale":10,
              "normz_name":"softmax",
              "k_n":10,
              "normz_drop_rate":0.}
