@@ -67,7 +67,7 @@ def init_cfg(cfg):
 def lit_pairs():
     pairs = {"batch_size":1,"flow":True,"flow_method":"cv2",
              "isize":None,"bw":False,"lr_init":1e-3,
-             "lr_final":1e-8,"weight_decay":1e-4,
+             "lr_final":1e-8,"weight_decay":0.,
              "nepochs":0,"task":"denoising","uuid":"",
              "scheduler":"default","step_lr_size":5,
              "step_lr_gamma":0.1,"flow_epoch":None,"flow_from_end":None}
