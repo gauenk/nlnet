@@ -44,16 +44,13 @@ class PdbAgg(nn.Module):
         # -- shape for index_matmul... --
         dists = rearrange(dists,"B HD Q K -> (B HD) Q K 1")
         inds  = rearrange(inds,"B HD Q K tr -> (B HD) Q K 1 tr")
-        print(dists.shape)
-        print(inds.shape)
 
         # -- convert inds --
-        inds = n3net.vid_to_raster_inds(inds,iH,iW,stride0,dev)
-        print(inds.shape)
+        inds = n3net.vid_to_raster_inds(inds,iH,iW,stride0,dev)[0] # from inds[None,:]
 
         # -- get patches --
         patches = self.unfold(vid)
-        shape_str = 'B Q 1 1 (HD C) ph pw -> (b HD) Q (C ph pw)'
+        shape_str = 'B Q 1 1 (HD C) ph pw -> (B HD) Q (C ph pw)'
         patches = rearrange(patches,shape_str,HD=nheads)
 
         # -- accumulate! --
