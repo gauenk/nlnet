@@ -31,8 +31,12 @@ class WpSumAgg(nn.Module):
 
         # -- limiting --
         if self.k > 0:
-            dists = dists[...,:self.k].contiguous()
-            inds = inds[...,:self.k,:].contiguous()
+            dists = dists[...,:self.k]
+            inds = inds[...,:self.k,:]
+
+        # -- contiguous --
+        dists = dists.contiguous()
+        inds = inds.contiguous()
 
         # -- aggregate --
         patches = self.wpsum(vid,dists,inds)

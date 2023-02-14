@@ -20,8 +20,8 @@ class SoftmaxNormalize(nn.Module):
     def __call__(self,dists):
 
         # -- handle dist type --
-        # if self.dist_type == "l2":
-        #     dists = -dists
+        if self.dist_type == "l2":
+            dists = -dists
 
         # -- limiting --
         if self.k > 0:
