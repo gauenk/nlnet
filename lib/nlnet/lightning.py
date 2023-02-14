@@ -70,7 +70,7 @@ def lit_pairs():
              "lr_final":1e-8,"weight_decay":1e-4,
              "nepochs":0,"task":"denoising","uuid":"",
              "scheduler":"default","step_lr_size":5,
-             "step_lr_gamma":0.1,"flow_epoch":None}
+             "step_lr_gamma":0.1,"flow_epoch":None,"flow_from_end":None}
     return pairs
 
 def sim_pairs():
@@ -94,6 +94,7 @@ class LitModel(pl.LightningModule):
         lit_cfg = init_cfg(lit_cfg).lit
         for key,val in lit_cfg.items():
             setattr(self,key,val)
+        self.set_flow_epoch() # only for current exps; makes last 10 epochs with optical flow.
         self.net = net
         self.sim_model = sim_model
         self.gen_loger = logging.getLogger('lightning')
@@ -111,8 +112,15 @@ class LitModel(pl.LightningModule):
         noisy = self.sim_model.run_rgb(clean)
         batch['noisy'] = noisy
 
+    def set_flow_epoch(self):
+        if not(self.flow_epoch is None): return
+        if self.flow_from_end is None: return
+        if self.flow_from_end == 0: return
+        self.flow_epoch = self.nepochs - self.flow_from_end
+
     def update_flow(self):
         if self.flow_epoch is None: return
+        if self.flow_epoch <= 0: return
         if self.current_epoch >= self.flow_epoch:
             self.flow = True
 
