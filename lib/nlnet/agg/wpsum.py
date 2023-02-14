@@ -30,8 +30,9 @@ class WpSumAgg(nn.Module):
     def __call__(self,vid,dists,inds):
 
         # -- limiting --
-        dists = dists[...,:self.k].contiguous()
-        inds = inds[...,:self.k,:].contiguous()
+        if self.k > 0:
+            dists = dists[...,:self.k].contiguous()
+            inds = inds[...,:self.k,:].contiguous()
 
         # -- aggregate --
         patches = self.wpsum(vid,dists,inds)
@@ -39,7 +40,8 @@ class WpSumAgg(nn.Module):
         # -- reshape --
         ps = patches.shape[-1]
         ntotal = dists.shape[-2]
-        shape_str = 'b h (o n) c ph pw -> (b o ph pw) n (h c)'
-        patches = rearrange(patches,shape_str,o=ntotal)
+        shape_str = 'b h q c ph pw -> (b q ph pw) (h c)'
+        patches = rearrange(patches,shape_str)
+
 
         return patches

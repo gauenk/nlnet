@@ -7,6 +7,7 @@
 
 # -- local modules --
 from . import wpsum
+from . import pdbsum
 
 # -- configs --
 from dev_basics.configs import ExtractConfig
@@ -29,7 +30,7 @@ def init_agg(cfg):
     cfg = cfgs.agg
 
     # -- menu --
-    modules = {"wpsum":wpsum}
+    modules = {"wpsum":wpsum,"pdbsum":pdbsum}
 
     # -- init --
     mod = modules[cfg.agg_name]
@@ -44,5 +45,6 @@ def init(cfg):
 def agg_pairs():
     pairs = {"ps":7,"pt":1,"dilation":1,
              "exact":False,"reflect_bounds":True,
-             "agg_name":"nl","k_a":10,"agg_name":"wpsum"}
+             "agg_name":"nl","k_a":-1,"agg_name":"wpsum",
+             "stride0":4,"pdbagg_chunk_size":64}
     return pairs

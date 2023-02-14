@@ -123,7 +123,7 @@ def run_fold(self,patches,vshape):
     fold = self.init_fold(vshape,patches.device)
 
     # -- reshape for folding --
-    shape_str = '(b o ph pw) n c -> b (o n) 1 1 c ph pw'
+    shape_str = '(b q ph pw) c -> b q 1 1 c ph pw'
     patches = rearrange(patches,shape_str,b=B,ph=ps,pw=ps)
     patches = patches.contiguous()
 

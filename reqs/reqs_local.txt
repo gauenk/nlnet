@@ -2,7 +2,7 @@
 -e ../cache_io
 -e ../dev_basics
 -e ../data_hub
--e ../n3net
+-e ../n3net/lib
 -e ../colanet
 -e ../lidia
 -e .
