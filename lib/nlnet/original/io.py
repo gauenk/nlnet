@@ -63,7 +63,8 @@ def load_model(cfg):
     blocks = fill_menu(cfgs,fields,menu_cfgs)
 
     # -- fill blocks with blocklists --
-    dfill = {"attn":["nheads","embed_dim"],"search":["nheads"]}
+    dfill = {"attn":["nheads","embed_dim"],"search":["nheads"],
+             "res":["nres_per_block","res_ksize"]}
     fill_blocks(blocks,blocklists,dfill)
 
     # -- create down/up sample --
@@ -145,9 +146,10 @@ def attn_pairs(defs):
 def blocklist_pairs(defs):
     shape = {"depth":None,"nheads":None,
              "nblocklists":None,"freeze":False,
-             "block_version":"v2"}
-    training = {"mlp_ratio":4.,"embed_dim":1,"num_res":0,"res_ksize":3,
+             "block_version":"v3"}
+    training = {"mlp_ratio":4.,"embed_dim":1,
                 "block_mlp":"mlp","norm_layer":"LayerNorm",
+                "num_res":3,"res_ksize":3,"nres_per_block":3,
                 "drop_rate_mlp":0.,"drop_rate_path":0.1}
     pairs = shape | training | defs
 
@@ -193,6 +195,10 @@ def fill_blocks(blocks,blocklists,fill_pydict):
         for b in range(start,stop):
             block = blocks[b]
             for field,fill_fields in fill_pydict.items():
+                if not(field in block):
+                    block[field] = {}
                 for fill_field in fill_fields:
+                    if not(fill_field in block):
+                        block[field][fill_field] = {}
                     block[field][fill_field] = blocklist[fill_field]
 

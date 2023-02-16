@@ -17,8 +17,10 @@ from . import attn_mods
 from .shared import get_norm_layer
 from .mlps import init_mlp
 from .sk_conv import SKUnit
+from .res import ResBlockList
+from .misc import LayerNorm2d
 
-class BlockV2(nn.Module):
+class BlockV3(nn.Module):
 
     def __init__(self, btype, blocklist, block):
         super().__init__()
@@ -32,13 +34,18 @@ class BlockV2(nn.Module):
         self.drop_mlp_rate = blocklist.drop_rate_mlp
         self.drop_path_rate = blocklist.drop_rate_path
         norm_layer = get_norm_layer(blocklist.norm_layer)
-        dpath = self.drop_path_rate
         mult = 2 if self.type == "dec" else 1
 
         # -- modify embed_dim --
         block.attn.embed_dim *= mult
         edim = block.attn.embed_dim * blocklist.nheads
         self.edim = edim
+
+        # -- norm layers --
+        # self.norm1 = nn.Identity()
+        # self.norm2 = nn.Identity()
+        self.norm1 = LayerNorm2d(edim)
+        self.norm2 = LayerNorm2d(edim)
 
         # -- init non-local attn --
         attn = block.attn
@@ -50,6 +57,13 @@ class BlockV2(nn.Module):
         # -- init local attn --
         self.sk_attn = SKUnit(in_features=edim,
                               out_features=edim,M=2,G=8,r=2)
+
+        # -- init non-linearity --
+        dprate = blocklist.drop_rate_path
+        ksize = block.res.res_ksize
+        nres = block.res.nres_per_block
+        self.res = ResBlockList(nres, edim, ksize)
+        self.drop_path = DropPath(dprate) if dprate > 0. else nn.Identity()
 
         # -- init combining layers [local vs non-local select] --
         vector_length = 32
@@ -75,6 +89,7 @@ class BlockV2(nn.Module):
         #    Non-Local Attn Layer
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+        vid = self.norm1(vid)
         nl_vid = self.attn(vid, flows=flows, state=state)
 
         # -=-=-=-=-=-=-=-=-=-=-=-=-
@@ -96,8 +111,9 @@ class BlockV2(nn.Module):
         #   Non-Linearity & Residual
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-        # vid = shortcut + self.drop_path(vid)
-        # vid = vid + self.drop_path(self.res(vid))
+        vid = shortcut + self.drop_path(vid)
+        vid = self.norm2(vid)
+        vid = vid + self.drop_path(self.res(vid))
 
         return vid
 

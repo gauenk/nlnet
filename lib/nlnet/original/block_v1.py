@@ -15,8 +15,6 @@ from dev_basics.utils.timer import ExpTimerList
 
 # -- clean coding --
 from . import attn_mods
-# from .misc import ResBlock,default_conv
-# from dev_basics.utils import clean_code
 from .mlps import init_mlp
 from .shared import get_norm_layer
 

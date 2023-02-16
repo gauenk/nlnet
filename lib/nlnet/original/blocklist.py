@@ -20,7 +20,7 @@ from dev_basics.utils.timer import ExpTimerList
 
 # -- local --
 from .blocks import get_block_version
-from .misc import ResBlock,conv
+from .res import ResBlockList
 
 # @clean_code.add_methods_from(bench_mods)
 class BlockList(nn.Module):
@@ -36,14 +36,15 @@ class BlockList(nn.Module):
              for d in range(blocklist.depth)])
 
         # -- residual blocks --
-        self.res = []
         mult = 2 if btype == "dec" else 1
+        nres = blocklist.num_res
         n_feats = blocklist.embed_dim * blocklist.nheads * mult
         ksize = blocklist.res_ksize
-        for _ in range(blocklist.num_res):
-            self.res.append(ResBlock(conv,n_feats,ksize))
-        if len(self.res) > 0:
-            self.res = nn.Sequential(*self.res)
+        self.nres = nres
+        if nres > 0:
+            self.res = ResBlockList(blocklist.num_res,n_feats,ksize)
+        else:
+            self.res = []
 
     def extra_repr(self) -> str:
         return str(self.blocklist)
@@ -51,11 +52,8 @@ class BlockList(nn.Module):
     def forward(self, vid, flows=None, state=None):
 
         # -- residual blocks --
-        if len(self.res) > 0:
-            B,T = vid.shape[:2]
-            vid = rearrange(vid,'b t c h w -> (b t) c h w',b=B)
+        if self.nres > 0:
             vid = self.res(vid)
-            vid = rearrange(vid,'(b t) c h w -> b t c h w',b=B)
 
         # -- non-local blocks --
         state_b = [state[0],None]

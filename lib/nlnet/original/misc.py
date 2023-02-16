@@ -1,32 +1,23 @@
+
+
 import math
 import torch
+import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import rearrange
 
+class LayerNorm2d(nn.LayerNorm):
+    """ LayerNorm for channels of '2D' spatial NCHW tensors """
+    """ copied from https://github.com/rwightman/pytorch-image-models/blob/d7b55a9429f3d56a991e604cbc2e9fdf1901612f/timm/models/layers/norm.py#L26 """
+    def __init__(self, num_channels, eps=1e-6, affine=True):
+        super().__init__(num_channels, eps=eps, elementwise_affine=affine)
 
-def conv(in_channels, out_channels, kernel_size,stride=1, bias=True):
-    return nn.Conv2d(
-        in_channels, out_channels, kernel_size,
-        padding=(kernel_size//2),stride=stride, bias=bias)
-
-class ResBlock(nn.Module):
-    def __init__(
-        self, conv, n_feats, kernel_size,
-        bias=True, bn=False, act=nn.PReLU(), res_scale=1):
-
-        super(ResBlock, self).__init__()
-        m = []
-        for i in range(2):
-            m.append(conv(n_feats, n_feats, kernel_size, bias=bias))
-            if bn:
-                m.append(nn.BatchNorm2d(n_feats))
-            if i == 0:
-                m.append(act)
-
-        self.body = nn.Sequential(*m)
-        self.res_scale = res_scale
-
-    def forward(self, x):
-        res = self.body(x).mul(self.res_scale)
-        res += x
-        return res
+    def forward(self,vid: torch.Tensor) -> torch.Tensor:
+        B,T = vid.shape[:2]
+        vid = rearrange(vid,'b t c h w -> (b t) c h w ')
+        vid = F.layer_norm(vid.permute(0, 2, 3, 1), self.normalized_shape,
+                           self.weight, self.bias, self.eps).permute(0, 3, 1, 2)
+        vid = rearrange(vid,'(b t) c h w -> b t c h w ',b=B)
+        vid = vid.contiguous()
+        return vid
