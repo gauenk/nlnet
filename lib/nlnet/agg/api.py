@@ -45,6 +45,6 @@ def init(cfg):
 def agg_pairs():
     pairs = {"ps":7,"pt":1,"dilation":1,
              "exact":False,"reflect_bounds":True,
-             "agg_name":"nl","k_a":-1,"agg_name":"wpsum",
+             "k_a":-1,"agg_name":"wpsum",
              "stride0":4,"pdbagg_chunk_size":512}
     return pairs

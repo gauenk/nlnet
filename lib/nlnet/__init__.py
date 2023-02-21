@@ -6,6 +6,9 @@ from . import lightning
 from .original import extract_config
 from .original import extract_config as extract_model_config
 
+# -- hooks --
+from . import hooks
+
 # -- api for searching --
 from . import search
 from .search import init_search#,extract_search_config

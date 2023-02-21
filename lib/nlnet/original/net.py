@@ -41,7 +41,7 @@ class SrNet(nn.Module):
         block_keys = ["blocklist","attn","search","normz","agg"]
 
         # -- dev --
-        self.inspect_print = True
+        self.inspect_print = False
 
         # -- benchmarking --
         self.attn_timer = arch_cfg.attn_timer
