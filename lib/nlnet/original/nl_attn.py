@@ -105,6 +105,8 @@ class NonLocalAttention(nn.Module):
         if self.search_name == "refine":
             inds_p = self.inds_rs1(state[0])
             dists,inds = self.search(q_vid,k_vid,inds_p)
+        elif self.search_name == "rand_inds":
+            dists,inds = self.search(q_vid,k_vid)
         else:
             dists,inds = self.search(q_vid,k_vid,flows.fflow,flows.bflow)
         self.update_state(state,dists,inds,q_vid.shape)
