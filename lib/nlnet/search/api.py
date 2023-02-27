@@ -62,7 +62,7 @@ def init(cfg):
 def search_pairs(cfg):
     # pairs0 = dnls.search.extract_config(cfg)
     pairs0 = {}
-    pairs1 = {"ws":21,"wt":0,"ps":7,"k":10,
+    pairs1 = {"ws":21,"wt":0,"ps":7,"k":10,"kr":1.,"wr":1,
              "wr_s":1,"kr_s":10,"wr_t":1,"kr_t":10,"scale":2,
              "pt":1,"exact":False,"rbwd":True,
              "nftrs_per_head":-1,"nchnls":-1,
