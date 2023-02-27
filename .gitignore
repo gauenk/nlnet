@@ -1,4 +1,4 @@
-./dispatch
+dispatch/*
 *txt
 ./slurm*
 .*
