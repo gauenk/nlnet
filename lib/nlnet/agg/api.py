@@ -24,7 +24,7 @@ extract_config = econfig.extract_config # rename extraction
 def init_agg(cfg):
 
     # -- unpack --
-    econfig.set_cfg(cfg)
+    econfig.init(cfg)
     cfgs = econfig({"agg":agg_pairs()})
     if econfig.is_init == True: return
     cfg = cfgs.agg

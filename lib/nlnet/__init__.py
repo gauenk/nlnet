@@ -6,6 +6,9 @@ from . import lightning
 from .original import extract_config
 from .original import extract_config as extract_model_config
 
+# -- next gen --
+from . import version2
+
 # -- hooks --
 from . import hooks
 

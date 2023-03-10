@@ -41,7 +41,7 @@ def fill_menu(_cfgs,fields,menu_cfgs,mfields):
 def extract_menu_cfg_impl(cfg,depths):
 
     # -- config --
-    econfig.init(cfg)
+    econfig.set_cfg(cfg)
 
     # -- init --
     nblocks = 2*np.sum(depths[:-1]) + depths[-1]
@@ -81,8 +81,8 @@ def search_menu(depths,menu_name,v0,v1):
 
     # -- init --
     params = edict()
-    params.search_name = get_search_names(menu_name,depths,v0,v1)
-    params.use_state_update = get_use_state_updates(params.search_name)
+    params.search_names = get_search_names(menu_name,depths,v0,v1)
+    params.use_state_updates = get_use_state_updates(params.search_names)
     return params
 
 def get_use_state_updates(search_names):

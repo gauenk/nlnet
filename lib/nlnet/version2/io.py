@@ -18,6 +18,9 @@ from .scaling import Downsample,Upsample # defaults
 from .menu import extract_menu_cfg_impl,fill_menu
 
 
+# -- dev basics --
+from dev_basics.unet_arch import io as unet_io
+
 # -- search/normalize/aggregate --
 from .. import search
 from .. import normz
@@ -38,46 +41,36 @@ def load_model(cfg):
 
     # -- config --
     econfig.init(cfg)
-    defs = shared_defaults(cfg)
-    menu_cfgs = extract_menu_cfg(cfg,defs.depth)
+    defs = econfig.extract_pairs(cfg,shared_pairs(),new=True)
+    defs.nblocklists = 2*(len(defs.depth)-1)+1
+    defs.nblocks = 2*np.sum(defs.depth[:-1]) * defs.depth[-1]
+    device = econfig.optional(cfg,"device","cuda:0")
     pairs = {"io":io_pairs(),
              "arch":arch_pairs(defs),
              "blocklist":blocklist_pairs(defs),
-             "attn":attn_pairs(defs),
-             "search":search.extract_config(cfg),
-             "normz":normz.extract_config(cfg),
-             "agg":agg.extract_config(cfg)}
-    device = econfig.optional(cfg,"device","cuda:0")
-    cfgs = econfig.extract_set(pairs)
+             "attn":attn_pairs(defs)}
+    cfgs = econfig.extract_set(pairs,new=True)
+    econfigs = {"search":search.econfig,
+                "normz":normz.econfig,
+                "agg":agg.econfig}
+    cfgs = cfgs | econfig.optional_config_dict(cfg,econfigs,new=True)
+    cfgs = edict(cfgs)
     if econfig.is_init: return
 
     # -- fill blocks with menu --
-    fill_fields = {"attn":[],
-               "search":["search_name","use_state_update"],
-               "normz":[],"agg":[],}
-    fields = ["attn","search","normz","agg"]
-    blocks = fill_menu(cfgs,fields,menu_cfgs,fill_fields)
-
-    # block_fields = ["attn","search","normz","agg"]
-    # block_cfgs = [cfgs[f] for f in block_fields]
-    # blocks_lib.copy_cfgs(block_cfgs,blocks)
-
-    # -- expand blocklists --
-    nblocklists = defs.nblocklists
-    fields = ["blocklist"]
-    blocklists = init_blocklists(cfgs.blocklist,defs.nblocklists)
-
-    # -- fill blocks with blocklists --
-    dfill = {"attn":["nheads","embed_dim"],"search":["nheads"],
+    dfill = {"attn":["nheads","embed_dim"],
+             "search":["nheads"],
              "res":["nres_per_block","res_ksize"]}
-    fill_blocks(blocks,blocklists,dfill)
+    fill_cfgs = {k:cfgs[k] for k in ["attn","search","normz","agg"]}
+    blocks,blocklists = unet_io.load_arch(cfg,fill_cfgs,dfill)
 
-    # -- create down/up sample --
-    scales = create_scales(blocklists)
-    print(blocklists[0])
+    # -- view --
+    scales = [{"in_dim":blocklist.in_dim,"out_dim":blocklist.out_dim} \
+              for blocklist in blocklists]
 
     # -- init model --
-    model = SrNet(cfgs.arch,blocklists,scales,blocks)
+    model = SrNet(cfgs.arch,blocklists,blocks)
+    print(blocklists[0])
 
     # -- load model --
     load_pretrained(model,cfgs.io)
@@ -97,14 +90,14 @@ def load_pretrained(model,cfg):
 #     Configs for "io"
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-def shared_defaults(_cfg):
+def shared_pairs():
     pairs = {"embed_dim":1,
              "nheads":[1,1,1],
              "depth":[1,1,1]}
-    cfg = econfig.extract_pairs(_cfg,pairs,new=False)
-    cfg.nblocklists = 2*(len(cfg.depth)-1)+1
-    cfg.nblocks = 2*np.sum(cfg.depth[:-1]) * cfg.depth[-1]
-    return cfg
+    # cfg = econfig.extract_pairs(pairs,_cfg)
+    # cfg.nblocklists = 2*(len(cfg.depth)-1)+1
+    # cfg.nblocks = 2*np.sum(cfg.depth[:-1]) * cfg.depth[-1]
+    return pairs
 
 def io_pairs():
     base = Path("weights/checkpoints/")
@@ -131,6 +124,7 @@ def blocklist_pairs(defs):
             "num_res":3,"res_ksize":3,"nres_per_block":3,}
     training = {"drop_rate_mlp":0.,"drop_rate_path":0.1}
     pairs = info | training | defs
+
     return pairs
 
 def arch_pairs(defs):
@@ -202,10 +196,9 @@ def extract_menu_cfg(_cfg,depth):
 
     """
 
-    cfg = econfig.extract_pairs(_cfg,
-                                {'search_menu_name':'full',
+    cfg = econfig.extract_pairs({'search_menu_name':'full',
                                  "search_v0":"exact",
-                                 "search_v1":"refine"},new=False)
+                                 "search_v1":"refine"},_cfg)
     return extract_menu_cfg_impl(cfg,depth)
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
