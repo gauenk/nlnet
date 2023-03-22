@@ -137,6 +137,7 @@ class NonLocalAttention(nn.Module):
         raise NotImplementedError("")
 
     def forward(self, vid, flows=None, state=None):
+        print(self.search,state[0] is None,state[1] is None)
 
         # -- init timer --
         self.timer = ExpTimer(self.use_timer)
@@ -152,6 +153,7 @@ class NonLocalAttention(nn.Module):
 
         # -- search --
         dists,inds = self.run_search(q_vid,k_vid,flows,state)
+        # th.cuda.synchronize()
 
         # -- normalize --
         dists = self.run_normalize(dists)
@@ -177,7 +179,8 @@ class NonLocalAttention(nn.Module):
         T,C,H,W = vshape[-4:]
         nH = (H-1)//self.stride0+1
         nW = (W-1)//self.stride0+1
-        state[1] = self.inds_rs0(inds.detach(),nH,nW)
+        state[1] = state[0]
+        state[0] = self.inds_rs0(inds.detach(),nH,nW)
 
     def inds_rs0(self,inds,nH,nW):
         if not(inds.ndim == 5): return inds

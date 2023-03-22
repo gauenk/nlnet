@@ -56,12 +56,8 @@ class BlockList(nn.Module):
             vid = self.res(vid)
 
         # -- non-local blocks --
-        state_b = [state[0],None]
         for blk in self.blocks:
-            vid = blk(vid,flows,state_b)
-            state_b = [state_b[1],None]
-        state[1] = state_b[0]
-
+            vid = blk(vid,flows,state)
         return vid
 
     def flops(self,h,w):

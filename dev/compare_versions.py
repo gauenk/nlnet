@@ -1,6 +1,8 @@
 import nlnet
 import torch as th
 from easydict import EasyDict as edict
+import copy
+dcopy = copy.deepcopy
 
 cfg = edict()
 cfg.stride0 = 4
@@ -46,4 +48,26 @@ print(noisy["0"].grad.shape)
 diff = th.mean((noisy["0"].grad - noisy["1"].grad)**2)
 print("Bwd: ",diff)
 
+# -=-=-=-=-=-=-=-=-=-=-=-=-
+#
+#     Compare Configs
+#
+# -=-=-=-=-=-=-=-=-=-=-=-=-
+
+
+
+cfg0 = nlnet.original.extract_config(dcopy(cfg))
+cfg1 = nlnet.version2.extract_config(dcopy(cfg))
+print(cfg0)
+print(cfg1)
+
+print("Missing keys in cfg1: ")
+for key0 in cfg0:
+    if not(key0 in cfg1):
+        print(key0)
+
+print("Missing keys in cfg0: ")
+for key1 in cfg1:
+    if not(key1 in cfg0):
+        print(key1)
 

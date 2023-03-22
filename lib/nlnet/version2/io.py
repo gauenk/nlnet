@@ -15,7 +15,7 @@ import dnls
 from .net import SrNet
 from .scaling import Downsample,Upsample # defaults
 # from .menu import extract_menu_cfg,fill_menu
-from .menu import extract_menu_cfg_impl,fill_menu
+# from .menu import extract_menu_cfg_impl,fill_menu
 
 
 # -- dev basics --
@@ -55,6 +55,7 @@ def load_model(cfg):
                 "agg":agg.econfig}
     cfgs = cfgs | econfig.optional_config_dict(cfg,econfigs,new=True)
     cfgs = edict(cfgs)
+    cfg_unet_arch = econfig.optional_config(cfg,unet_io.econfig,new=True)
     if econfig.is_init: return
 
     # -- fill blocks with menu --
@@ -62,6 +63,7 @@ def load_model(cfg):
              "search":["nheads"],
              "res":["nres_per_block","res_ksize"]}
     fill_cfgs = {k:cfgs[k] for k in ["attn","search","normz","agg"]}
+    print(cfg_unet_arch)
     blocks,blocklists = unet_io.load_arch(cfg,fill_cfgs,dfill)
 
     # -- view --
@@ -136,132 +138,3 @@ def arch_pairs(defs):
     }
     return pairs  | defs
 
-
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-#
-#     Create Up/Down Scales
-#
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-def create_scales(blocklists):
-    scales = create_downsample_cfg(blocklists)
-    scales += [None] # center
-    scales += create_upsample_cfg(blocklists)
-    return scales
-
-def create_upsample_cfg(bcfgs):
-    cfgs = []
-    start = len(bcfgs)//2-1
-    for l in range(start,0-1,-1):
-        cfg_l = edict()
-        cfg_l.in_dim = bcfgs[l+1].embed_dim*bcfgs[l+1].nheads
-        if l != start:
-            cfg_l.in_dim = 2 * cfg_l.in_dim
-        cfg_l.out_dim = bcfgs[l].embed_dim*bcfgs[l].nheads
-        cfgs.append(cfg_l)
-    return cfgs
-
-def create_downsample_cfg(bcfgs):
-    cfgs = []
-    nencs = len(bcfgs)//2
-    for l in range(nencs):
-        cfg_l = edict()
-        cfg_l.in_dim = bcfgs[l].embed_dim*bcfgs[l].nheads
-        cfg_l.out_dim = bcfgs[l+1].embed_dim*bcfgs[l+1].nheads
-        cfgs.append(cfg_l)
-    return cfgs
-
-# def extract_search_cfg(cfg):
-#     cfg = dnls.search.extract_config(cfg)
-#     cfg = cfg | {"use_flow":True,"scale":2,
-#                  "kr_t":-1,"wr_t":-1,
-#                  "kr_s":-1,"wr_s":-1}
-#     return cfg
-
-
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-#
-#    Search Info for Each Block from Menu
-#
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-def extract_menu_cfg(_cfg,depth):
-
-    """
-
-    Extract unique values for each _block_
-    This can get to sizes ~=50
-    So a menu is used to simplify setting each of the 50 parameters.
-    These "fill" the fixed configs above.
-
-    """
-
-    cfg = econfig.extract_pairs({'search_menu_name':'full',
-                                 "search_v0":"exact",
-                                 "search_v1":"refine"},_cfg)
-    return extract_menu_cfg_impl(cfg,depth)
-
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-#
-#    Create the list of blocks from block and blocklist
-#
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-
-def fill_blocks(blocks,blocklists,fill_pydict):
-    """
-
-    Expand from a config to a list of configs
-    with len(block) == # of blocks in network
-
-    -=-=-=- Logical Abstractions -=-=-=-
-    blocklist_0 -> blocklist_1 -> ....
-    block_0,block_1,... -> block_0,block_1,... ->
-    <----  depth_0 ---->   <---- depth_1 ---->
-
-    -=-=-=- This Output -=-=-=-
-    block_0,block_1,......,block_D0+1,block_D0+2,...
-    <---- depth_0 -------><------- depth_1 -------->
-
-    """
-    start,stop = 0,0
-    for blocklist in blocklists:
-        start = stop
-        stop = start + blocklist.depth
-        for b in range(start,stop):
-            block = blocks[b]
-            for field,fill_fields in fill_pydict.items():
-                if not(field in block):
-                    block[field] = {}
-                for fill_field in fill_fields:
-                    if not(fill_field in block):
-                        block[field][fill_field] = {}
-                    block[field][fill_field] = blocklist[fill_field]
-
-def init_blocklists(cfg,L):
-    """
-
-    Expands dicts with field of length 1, 1/2, or Full length
-    lists into a list of dicts
-
-    """
-    # converts a edict to a list of edicts
-    cfgs = []
-    keys = list(cfg.keys())
-    for l in range(L):
-        cfg_l = edict()
-        for key in keys:
-            if isinstance(cfg[key],list):
-                mid = L//2
-                eq = len(cfg[key]) == L
-                eq_h = len(cfg[key]) == (mid+1)
-                assert eq or eq_h,"Must be shaped for %s & %d" % (key,L)
-                if eq: # index along the list
-                    cfg_l[key] = cfg[key][l]
-                elif eq_h: # reflect list length is half size
-                    li = l if l <= mid else ((L-1)-l)
-                    cfg_l[key] = cfg[key][li]
-            else:
-                cfg_l[key] = cfg[key]
-        cfgs.append(cfg_l)
-    return cfgs

@@ -96,16 +96,17 @@ class BlockV3(nn.Module):
         #     Local Attn Layer
         # -=-=-=-=-=-=-=-=-=-=-=-=-
 
-        sk_vid = self.sk_attn(vid)
+        # sk_vid = self.sk_attn(vid)
+
 
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         #           Combo
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-        combo_vid = th.stack((nl_vid,sk_vid),dim=1)
-        weights = self.compute_pair_weights(combo_vid)
-        vid = (combo_vid*weights).sum(dim=1)
-
+        # combo_vid = th.stack((nl_vid,sk_vid),dim=1)
+        # weights = self.compute_pair_weights(combo_vid)
+        # vid = (combo_vid*weights).sum(dim=1)
+        vid = nl_vid
 
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         #   Non-Linearity & Residual

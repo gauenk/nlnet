@@ -38,12 +38,24 @@ def fill_menu(_cfgs,fields,menu_cfgs,mfields):
     return cfgs
 
 @econfig.set_init
-def extract_menu_cfg_impl(cfg,depths):
+def get_blocks(cfg):
+    """
+
+    Extract blocks
+
+    """
 
     # -- config --
     econfig.init(cfg)
+    pairs = {"search_menu_name":"full",
+             "search_v0":"exact","search_v1":"refine"}
+    cfg = econfig.extract_pairs(cfg,pairs)
+    # -- finish args --
+    if econfig.is_init: return
+
 
     # -- init --
+    depths = cfg.arch_depth
     nblocks = 2*np.sum(depths[:-1]) + depths[-1]
 
     # -- unpack attn name --
@@ -61,8 +73,9 @@ def extract_menu_cfg_impl(cfg,depths):
     # -- unpack agg name --
     # ...
 
-    # -- finish args --
-    if econfig.is_init: return
+
+    # # -- arch params --
+    # arch_params = arch_menu(search_params)
 
     # -- expand out blocks --
     blocks = []
@@ -75,7 +88,6 @@ def extract_menu_cfg_impl(cfg,depths):
         blocks.append(block_l)
 
     return blocks
-
 
 def search_menu(depths,menu_name,v0,v1):
 
@@ -105,6 +117,10 @@ def get_search_names(menu_name,depths,v0,v1):
         return [v0,]*nblocks
     elif menu_name == "one":
         return [v0,] + [v1,]*(nblocks-1)
+    elif menu_name == "once_video":
+        return [v1,]*(nblocks)
+    elif menu_name == "once_features":
+        return [v1,]*(nblocks)
     elif menu_name == "first":
         names = []
         for depths_i in depths:

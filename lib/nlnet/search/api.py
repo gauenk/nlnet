@@ -31,7 +31,7 @@ def init_search(cfg):
 
     # -- unpack --
     econfig.init(cfg)
-    cfg = econfig.extract_pairs(cfg,search_pairs(cfg))
+    cfg = econfig.extract_pairs(cfg,search_pairs())
     if econfig.is_init == True: return
 
     # -- create module --
@@ -59,7 +59,7 @@ def load_local(cfg):
 def init(cfg):
     return init_search(cfg)
 
-def search_pairs(cfg):
+def search_pairs():
     # pairs0 = dnls.search.extract_config(cfg)
     pairs0 = {}
     pairs1 = {"ws":21,"wt":0,"ps":7,"k":10,"kr":1.,"wr":1,

@@ -12,10 +12,9 @@ from easydict import EasyDict as edict
 import dnls
 
 # -- network --
+from . import menu
 from .net import SrNet
 from .scaling import Downsample,Upsample # defaults
-# from .menu import extract_menu_cfg,fill_menu
-from .menu import extract_menu_cfg_impl,fill_menu
 
 
 # -- search/normalize/aggregate --
@@ -28,44 +27,116 @@ from .. import agg
 from dev_basics import arch_io
 
 # -- configs --
-from dev_basics.configs import ExtractConfig
+from dev_basics.configs import ExtractConfig,dcat
 econfig = ExtractConfig(__file__) # init extraction
 extract_config = econfig.extract_config # rename extraction
+
+"""
+arch:
+  in_chans:3,
+  dd_in:3,
+  dowsample:"Downsample"
+  upsample:"Upsample"
+  embed_dim:None
+  "input_proj_depth":1
+  "output_proj_depth":1
+  "drop_rate_pos":0.
+  "attn_timer":False
+
+But how do I do this?
+    # -> we must have its own search_cfg --
+    arch.use_search_input = "none"
+    arch.share_encdec = False
+    # arch.share_encdec = [False,]*ndepth
+    if search_menu_name == "once_video":
+        arch.use_search_input = "video"
+        arch.share_encdec = True#[True,]*ndepth
+    elif search_menu_name == "once_features":
+        arch.use_search_input = "features"
+        arch.share_encdec = True#[True,]*len(depths)
+
+
+__So it shouldn't be a "cfg" file but a Python file.__
+
+
+fixed_pairs = {"arch":{"in_chans":3,...},...}
+
+dyn_pairs = [[["use_search_input","share_encdec"],share_search_fxn_name],
+             [[fieldname0,fieldname1,fieldname3],other_fxn_name],
+            ]
+
+Common Usage of Dynamic Config:
+
+cfg.search_name = "nls" vs. "nat"
+
+cfg = search.extract_config(cfg) "nat" OR "nls" parameters but _not both_.
+
+"""
+
 
 # -- load the model --
 @econfig.set_init
 def load_model(cfg):
 
-    # -- config --
+    # -=-=-=-=-=-=-=-=-=-=-
+    #
+    #        Config
+    #
+    # -=-=-=-=-=-=-=-=-=-=-
+
+    # -- init --
     econfig.init(cfg)
-    defs = shared_defaults(cfg)
-    menu_cfgs = extract_menu_cfg(cfg,defs.depth)
-    pairs = {"io":io_pairs(),
-             "arch":arch_pairs(defs),
-             "blocklist":blocklist_pairs(defs),
-             "attn":attn_pairs(defs),
-             "search":search.extract_config(cfg),
-             "normz":normz.extract_config(cfg),
-             "agg":agg.extract_config(cfg)}
     device = econfig.optional(cfg,"device","cuda:0")
-    cfgs = econfig.extract_set(pairs)
+    if "search_menu_name" in cfg:
+        print(cfg.search_menu_name)
+
+
+    # -- unpack local vars --
+    local_pairs = {"io":io_pairs(),
+                   "arch":arch_pairs(),
+                   "blocklist":blocklist_pairs(),
+                   "attn":attn_pairs()}
+    cfgs = econfig.extract_dict_of_pairs(cfg,local_pairs,restrict=True)
+    cfg = dcat(cfg,econfig.flatten(cfgs)) # update cfg
+
+    # -- unpack lib dependencies --
+    dep_pairs = {"menu":menu.econfig,
+                 "search":search.econfig,
+                 "normz":normz.econfig,
+                 "agg":agg.econfig}
+    cfgs = dcat(cfgs,econfig.extract_dict_of_econfigs(cfg,dep_pairs))
+    cfg = dcat(cfg,econfig.flatten(cfgs))
+
+    # -- specific update --
+    cfg.nblocklists = 2*(len(cfg.arch_depth)-1)+1
+    update_archs(cfgs.arch,cfg.search_menu_name,cfg.nblocklists//2)
+    update_archs(cfg,cfg.search_menu_name,cfg.nblocklists//2)
+
+    # -- end init --
     if econfig.is_init: return
+
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+    #
+    #     Construct Network Configs
+    #
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
     # -- fill blocks with menu --
     fill_fields = {"attn":[],
                "search":["search_name","use_state_update"],
                "normz":[],"agg":[],}
     fields = ["attn","search","normz","agg"]
-    blocks = fill_menu(cfgs,fields,menu_cfgs,fill_fields)
+    menu_blocks = menu.get_blocks(cfg)
+    blocks = menu.fill_menu(cfgs,fields,menu_blocks,fill_fields)
 
+    # print([block.search.search_name for block in blocks])
     # block_fields = ["attn","search","normz","agg"]
     # block_cfgs = [cfgs[f] for f in block_fields]
     # blocks_lib.copy_cfgs(block_cfgs,blocks)
 
     # -- expand blocklists --
-    nblocklists = defs.nblocklists
     fields = ["blocklist"]
-    blocklists = init_blocklists(cfgs.blocklist,defs.nblocklists)
+    blocklists = init_blocklists(cfgs.blocklist,cfg.nblocklists)
 
     # -- fill blocks with blocklists --
     dfill = {"attn":["nheads","embed_dim"],"search":["nheads"],
@@ -74,10 +145,9 @@ def load_model(cfg):
 
     # -- create down/up sample --
     scales = create_scales(blocklists)
-    print(blocklists[0])
 
     # -- init model --
-    model = SrNet(cfgs.arch,blocklists,scales,blocks)
+    model = SrNet(cfgs.arch,cfgs.search,blocklists,scales,blocks)
 
     # -- load model --
     load_pretrained(model,cfgs.io)
@@ -97,14 +167,26 @@ def load_pretrained(model,cfg):
 #     Configs for "io"
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-def shared_defaults(_cfg):
+def update_archs(arch,search_menu_name,ndepth):
+    # -> we must have its own search_cfg --
+    arch.use_search_input = "none"
+    arch.share_encdec = False
+    # arch.share_encdec = [False,]*ndepth
+    if search_menu_name == "once_video":
+        arch.use_search_input = "video"
+        arch.share_encdec = True#[True,]*ndepth
+    elif search_menu_name == "once_features":
+        arch.use_search_input = "features"
+        arch.share_encdec = True#[True,]*len(depths)
+
+def shared_defaults():
     pairs = {"embed_dim":1,
-             "nheads":[1,1,1],
-             "depth":[1,1,1]}
-    cfg = econfig.extract_pairs(_cfg,pairs,new=False)
-    cfg.nblocklists = 2*(len(cfg.depth)-1)+1
-    cfg.nblocks = 2*np.sum(cfg.depth[:-1]) * cfg.depth[-1]
-    return cfg
+             "arch_nheads":[1,1,1],
+             "arch_depth":[1,1,1]}
+    # cfg = econfig.extract_pairs(_cfg,pairs,new=False)
+    # cfg.nblocklists = 2*(len(cfg.depth)-1)+1
+    # cfg.nblocks = 2*np.sum(cfg.depth[:-1]) * cfg.depth[-1]
+    return pairs
 
 def io_pairs():
     base = Path("weights/checkpoints/")
@@ -115,17 +197,15 @@ def io_pairs():
              "pretrained_root":"."}
     return pairs
 
-def attn_pairs(defs):
+def attn_pairs():
     pairs = {"qk_frac":1.,"qkv_bias":True,
              "token_mlp":'leff',"attn_mode":"default",
              "token_projection":'linear',
              "drop_rate_proj":0.,"attn_timer":False}
     return pairs
 
-def blocklist_pairs(defs):
-    # shape = {"depth":None,"nheads":None,
-    #          "nblocklists":None,"freeze":False,
-    #          "block_version":"v3"}
+def blocklist_pairs():
+    defs = shared_defaults()
     info = {"mlp_ratio":4.,"embed_dim":1,"block_version":"v3",
             "freeze":False,"block_mlp":"mlp","norm_layer":"LayerNorm",
             "num_res":3,"res_ksize":3,"nres_per_block":3,}
@@ -133,14 +213,15 @@ def blocklist_pairs(defs):
     pairs = info | training | defs
     return pairs
 
-def arch_pairs(defs):
+def arch_pairs():
+    defs = shared_defaults()
     pairs = {"in_chans":3,"dd_in":3,
              "dowsample":"Downsample", "upsample":"Upsample",
              "embed_dim":None,"input_proj_depth":1,
              "output_proj_depth":1,"drop_rate_pos":0.,
              "attn_timer":False,
     }
-    return pairs  | defs
+    return pairs | defs
 
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -191,22 +272,22 @@ def create_downsample_cfg(bcfgs):
 #
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-def extract_menu_cfg(_cfg,depth):
+# def extract_menu_cfg(_cfg,depth):
 
-    """
+#     """
 
-    Extract unique values for each _block_
-    This can get to sizes ~=50
-    So a menu is used to simplify setting each of the 50 parameters.
-    These "fill" the fixed configs above.
+#     Extract unique values for each _block_
+#     This can get to sizes ~=50
+#     So a menu is used to simplify setting each of the 50 parameters.
+#     These "fill" the fixed configs above.
 
-    """
+#     """
 
-    cfg = econfig.extract_pairs(_cfg,
-                                {'search_menu_name':'full',
-                                 "search_v0":"exact",
-                                 "search_v1":"refine"},new=False)
-    return extract_menu_cfg_impl(cfg,depth)
+#     cfg = econfig.extract_pairs(_cfg,
+#                                 {'search_menu_name':'full',
+#                                  "search_v0":"exact",
+#                                  "search_v1":"refine"},new=False)
+#     return extract_menu_cfg_impl(cfg,depth)
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 #
@@ -241,9 +322,16 @@ def fill_blocks(blocks,blocklists,fill_pydict):
                 if not(field in block):
                     block[field] = {}
                 for fill_field in fill_fields:
-                    if not(fill_field in block):
-                        block[field][fill_field] = {}
-                    block[field][fill_field] = blocklist[fill_field]
+                    write_field = get_write_field(fill_field)
+                    if not(write_field in block):
+                        block[field][write_field] = {}
+                    block[field][write_field] = blocklist[fill_field]
+
+def get_write_field(read_field):
+    if "arch_" in read_field:
+        return read_field.split("arch_")[1]
+    else:
+        return read_field
 
 def init_blocklists(cfg,L):
     """
@@ -258,17 +346,18 @@ def init_blocklists(cfg,L):
     for l in range(L):
         cfg_l = edict()
         for key in keys:
+            write_key = get_write_field(key)
             if isinstance(cfg[key],list):
                 mid = L//2
                 eq = len(cfg[key]) == L
                 eq_h = len(cfg[key]) == (mid+1)
                 assert eq or eq_h,"Must be shaped for %s & %d" % (key,L)
                 if eq: # index along the list
-                    cfg_l[key] = cfg[key][l]
+                    cfg_l[write_key] = cfg[key][l]
                 elif eq_h: # reflect list length is half size
                     li = l if l <= mid else ((L-1)-l)
-                    cfg_l[key] = cfg[key][li]
+                    cfg_l[write_key] = cfg[key][li]
             else:
-                cfg_l[key] = cfg[key]
+                cfg_l[write_key] = cfg[key]
         cfgs.append(cfg_l)
     return cfgs
