@@ -145,6 +145,7 @@ class NonLocalAttention(nn.Module):
         B,T,C,H,W = vid.shape
         if self.use_flow: flows = flow.rescale_flows(flows,H,W)
         # self.search.set_flows(vid,flows)
+        # print(self.search.anchor_self)
 
         # -- extract --
         q_vid,k_vid,v_vid = self.get_qkv(vid)

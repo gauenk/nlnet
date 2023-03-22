@@ -63,14 +63,14 @@ def search_pairs(cfg):
     # pairs0 = dnls.search.extract_config(cfg)
     pairs0 = {}
     pairs1 = {"ws":21,"wt":0,"ps":7,"k":10,"kr":1.,"wr":1,
-             "wr_s":1,"kr_s":10,"wr_t":1,"kr_t":10,"scale":2,
-             "pt":1,"exact":False,"rbwd":True,
-             "nftrs_per_head":-1,"nchnls":-1,
-             "nheads":1,"stride0":4,"stride1":1,
-             "reflect_bounds":True,"use_k":True,"use_adj":True,
-             "search_abs":False,"anchor_self":False,
-             "dist_type":"l2","search_name":"nl","use_flow":True,
-             "dilation":1,"use_state_update":False}
+              "wr_s":1,"kr_s":10,"wr_t":1,"kr_t":10,"scale":2,
+              "pt":1,"exact":False,"rbwd":True,
+              "nftrs_per_head":-1,"nchnls":-1,
+              "nheads":1,"stride0":4,"stride1":1,
+              "reflect_bounds":True,"use_k":True,"use_adj":True,
+              "search_abs":False,"anchor_self":False,
+              "dist_type":"l2","search_name":"nl","use_flow":True,
+              "dilation":1,"use_state_update":False}
     pairs = pairs0 | pairs1
     return pairs
 
