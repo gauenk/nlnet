@@ -7,7 +7,7 @@ from einops import rearrange,repeat
 from timm.models.layers import DropPath
 
 # -- project deps --
-from .nl_attn import NonLocalAttention
+from .nl_attn_vid import NonLocalAttentionVideo
 
 # -- benchmarking --
 from dev_basics.utils.timer import ExpTimerList
@@ -52,7 +52,7 @@ class BlockV3(nn.Module):
         search = block.search
         normz = block.normz
         agg = block.agg
-        self.attn = NonLocalAttention(attn,search,normz,agg)
+        self.attn = NonLocalAttentionVideos(attn,search,normz,agg)
 
         # -- init local attn --
         self.sk_attn = SKUnit(in_features=edim,
@@ -90,23 +90,7 @@ class BlockV3(nn.Module):
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
         vid = self.norm1(vid)
-        nl_vid = self.attn(vid, flows=flows, state=state)
-
-        # -=-=-=-=-=-=-=-=-=-=-=-=-
-        #     Local Attn Layer
-        # -=-=-=-=-=-=-=-=-=-=-=-=-
-
-        sk_vid = self.sk_attn(vid)
-
-
-        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-        #           Combo
-        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-        combo_vid = th.stack((nl_vid,sk_vid),dim=1)
-        weights = self.compute_pair_weights(combo_vid)
-        vid = (combo_vid*weights).sum(dim=1)
-        # vid = nl_vid
+        vid = self.attn(vid, flows=flows, state=state)
 
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         #   Non-Linearity & Residual

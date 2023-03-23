@@ -98,7 +98,6 @@ class BlockV3(nn.Module):
 
         sk_vid = self.sk_attn(vid)
 
-
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         #           Combo
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -106,7 +105,7 @@ class BlockV3(nn.Module):
         combo_vid = th.stack((nl_vid,sk_vid),dim=1)
         weights = self.compute_pair_weights(combo_vid)
         vid = (combo_vid*weights).sum(dim=1)
-        # vid = nl_vid
+
 
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         #   Non-Linearity & Residual

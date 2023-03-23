@@ -101,10 +101,6 @@ register_method = clean_code.register_method(__methods__)
 #     return search
 
 @register_method
-def get_stacked_video(self,vid,vvid,dists,inds):
-    pass
-
-@register_method
 def init_fold(self,vshape,device):
     dil     = self.dilation
     stride0 = self.stride0

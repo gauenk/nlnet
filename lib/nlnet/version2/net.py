@@ -13,7 +13,6 @@ from einops import rearrange,repeat
 from functools import partial
 
 # -- extra deps --
-import dnls
 from timm.models.layers import trunc_normal_
 
 # -- project deps --
@@ -28,7 +27,7 @@ from ..utils.timer import ExpTimerList
 
 class SrNet(nn.Module):
 
-    def __init__(self, arch_cfg, search_cfg, blocklists, scales, blocks):
+    def __init__(self, arch_cfg, blocklists, blocks):
         super().__init__()
 
         # -- init --
@@ -40,8 +39,6 @@ class SrNet(nn.Module):
         num_encs = self.num_encs
         self.pos_drop = nn.Dropout(p=arch_cfg.drop_rate_pos)
         block_keys = ["blocklist","attn","search","normz","agg"]
-        self.use_search_input = arch_cfg.use_search_input
-        self.share_encdec = arch_cfg.share_encdec
 
         # -- dev --
         self.inspect_print = False
@@ -74,7 +71,7 @@ class SrNet(nn.Module):
             blocklist_i = blocklists[enc_i]
             blocks_i = [blocks[i] for i in range(start,stop)]
             enc_layer = BlockList("enc",blocklist_i,blocks_i)
-            down_layer = Downsample(scales[enc_i].in_dim,scales[enc_i].out_dim)
+            down_layer = Downsample(blocklists[enc_i].in_dim,blocklists[enc_i].out_dim)
             setattr(self,"encoderlayer_%d" % enc_i,enc_layer)
             setattr(self,"dowsample_%d" % enc_i,down_layer)
 
@@ -100,7 +97,7 @@ class SrNet(nn.Module):
             stop = start + blocklists[dec_i].depth
             blocklist_i = blocklists[dec_i]
             blocks_i = [blocks[i] for i in range(start,stop)]
-            up_layer = Upsample(scales[dec_i].in_dim,scales[dec_i].out_dim)
+            up_layer = Upsample(blocklists[dec_i].in_dim,blocklists[dec_i].out_dim)
             dec_layer = BlockList("dec",blocklist_i,blocks_i)
             setattr(self,"upsample_%d" % dec_i,up_layer)
             setattr(self,"decoderlayer_%d" % dec_i,dec_layer)
@@ -111,12 +108,6 @@ class SrNet(nn.Module):
 
         self.dec_list = dec_list
         self.apply(self._init_weights)
-
-        # -- first search --
-        search_cfg.nheads = arch_cfg.arch_nheads[0]
-        if self.use_search_input == "video":
-            search_cfg.nheads = 1
-        self.search = dnls.search.init(search_cfg)
 
     def _apply_freeze(self):
         if all([f is False for f in self.freeze]): return
@@ -143,20 +134,10 @@ class SrNet(nn.Module):
     def no_weight_decay_keywords(self):
         return {'relative_position_bias_table'}
 
-    def search_input(self, video, features, flows, state):
-        if self.use_search_input == "none": return None
-        srch = video if self.use_search_input == "video" else features
-        with th.no_grad():
-            dists,inds = self.search(srch,srch,flows.fflow,flows.bflow)
-            self.update_state(state,dists,inds,srch.shape)
-
     def forward(self, vid, flows=None, states=None):
 
-
-        # -- unpack --
-        b,t,c,h,w = vid.shape
-
         # -- Input Projection --
+        b,t,c,h,w = vid.shape
         y = self.input_proj(vid)
         y = self.pos_drop(y)
         num_encs = self.num_encs
@@ -165,19 +146,11 @@ class SrNet(nn.Module):
         if states is None:
             states = [None,None]# for _ in range(2*num_encs+1)]
 
-        # -- optional search --
-        self.search_input(vid,y,flows,states)
-
         # -- enc --
         z = y
         encs = []
-        share_states = []
         states_i = [states[0],None]
         for i,(enc,down) in enumerate(self.enc_list):
-
-            # -- optionally save for decoder --
-            if self.share_encdec:
-                share_states.append(states_i)
 
             # -- forward --
             z = enc(z,flows=flows,state=states_i)
@@ -186,20 +159,17 @@ class SrNet(nn.Module):
             z = down(z)
             self.iprint("[dow] i: %d" % i,z.shape)
 
-            # -- downsample states --
-            states_i = self.down_states(states_i)
+            # -- update state --
+            states_i = [self.down_state(states_i[1]),None]
 
         # -- middle --
         iH,iW = z.shape[-2:]
         z = self.conv(z,flows=flows,state=states_i)
         self.iprint("[mid]: ",z.shape)
+        states_i = [states_i[1],None]
 
         # -- dec --
         for i,(up,dec) in enumerate(self.dec_list):
-
-            # -- load encoder state --
-            if self.share_encdec:
-                states_i = share_states[-(i+1)]
 
             # -- forward --
             i_rev = (num_encs-1)-i
@@ -210,8 +180,8 @@ class SrNet(nn.Module):
             z = dec(z,flows=flows,state=states_i)
             self.iprint("[dec] i: %d" % i,z.shape)
 
-            # # -- update state --
-            # states_i = self.up_states(states_i)
+            # -- update state --
+            states_i = [self.up_state(states_i[1]),None]
 
         # -- Output Projection --
         y = self.output_proj(z)
@@ -248,12 +218,6 @@ class SrNet(nn.Module):
         return th.cat([z,enc],dim)
 
 
-    def down_states(self,states):
-        return [self.down_inds(states[0]),self.down_inds(states[1])]
-
-    def up_states(self,states):
-        return [self.up_inds(states[0]),self.up_inds(states[1])]
-
     def down_state(self,state):
         return self.down_inds(state)
 
@@ -264,19 +228,12 @@ class SrNet(nn.Module):
         if inds is None: return inds
 
         # -- downsample shape --
-        T,H,W,B,HD,K,_ = inds.shape
-        inds = inds[:,::2,::2].clone()
+        rshape = 'T H W b h k tr -> b h (T H W) k tr'
+        inds = rearrange(inds[:,::2,::2],rshape)
 
         # -- downsample values --
         inds[...,1] = th.div(inds[...,1],2,rounding_mode='floor')
         inds[...,2] = th.div(inds[...,2],2,rounding_mode='floor')
-
-        # -- clip --
-        inds[...,1] = th.clip(inds[...,1],min=0,max=H//2-1)
-        inds[...,2] = th.clip(inds[...,2],min=0,max=W//2-1)
-
-        # -- unique across K --
-        inds = dnls.nn.jitter_unique_inds(inds,5,K,H,W)
 
         return inds
 
@@ -315,26 +272,6 @@ class SrNet(nn.Module):
         layer_i = getattr(self,"conv")
         self.times.update_times(layer_i.times)
         layer_i.reset_times()
-
-    def update_state(self,state,dists,inds,vshape):
-        # if not(self.use_state_update): return
-        T,C,H,W = vshape[-4:]
-        nH = (H-1)//self.search.stride0+1
-        nW = (W-1)//self.search.stride0+1
-        state[1] = state[0]
-        state[0] = self.inds_rs0(inds.detach(),nH,nW)
-
-    def inds_rs0(self,inds,nH,nW):
-        if not(inds.ndim == 5): return inds
-        rshape = 'b h (T nH nW) k tr -> T nH nW b h k tr'
-        inds = rearrange(inds,rshape,nH=nH,nW=nW)
-        return inds
-
-    def inds_rs1(self,inds):
-        if not(inds.ndim == 7): return inds
-        rshape = 'T nH nW b h k tr -> b h (T nH nW) k tr'
-        inds = rearrange(inds,rshape)
-        return inds
 
     def flops(self,h,w):
 

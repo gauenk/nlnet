@@ -38,11 +38,12 @@ from dev_basics.utils.timer import ExpTimer,ExpTimerList
 
 # -- modules --
 from . import attn_mods
+from .res import ResBlockList
 from dev_basics.utils import clean_code
 
 
 @clean_code.add_methods_from(attn_mods)
-class NonLocalAttention(nn.Module):
+class NonLocalAttentionVideo(nn.Module):
     def __init__(self, attn_cfg, search_cfg, normz_cfg, agg_cfg):
         super().__init__()
 
@@ -81,6 +82,12 @@ class NonLocalAttention(nn.Module):
         self.k_s = search_cfg.k
         self.k_n = normz_cfg.k_n
         self.k_a = agg_cfg.k_a
+
+        # -- init non-linearity --
+        dprate = blocklist.drop_rate_path
+        ksize = block.res.res_ksize
+        nres = block.res.nres_per_block
+        self.res = ResBlockList(nres, edim, ksize)
 
         # -- timers --
         self.use_timer = attn_cfg.attn_timer
@@ -122,9 +129,13 @@ class NonLocalAttention(nn.Module):
 
     def run_aggregation(self,v_vid,dists,inds):
         self.timer.sync_start("agg")
-        patches = self.agg(v_vid,dists,inds)
+
+        stacked_vids = self.get_stacked_videos(vid,v_vid,dists,inds)
+        stacked_vids = self.res(stacked_vids)
+        vid = th.mean(stacked_vids,1)
+
         self.timer.sync_stop("agg")
-        return patches
+        return vid
 
     def run_transform(self,patches):
         self.timer.sync_start("trans")
@@ -160,13 +171,7 @@ class NonLocalAttention(nn.Module):
         dists = self.run_normalize(dists)
 
         # -- aggregate --
-        patches = self.run_aggregation(v_vid,dists,inds)
-
-        # -- transform --
-        patches = self.run_transform(patches)
-
-        # -- fold --
-        vid = self.run_fold(patches,vid.shape)
+        vid = self.run_aggregation(vid,v_vid,dists,inds)
 
         # -- timing --
         self.timer.sync_stop("attn")

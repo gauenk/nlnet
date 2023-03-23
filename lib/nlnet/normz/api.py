@@ -23,7 +23,7 @@ extract_config = econfig.extract_config # rename extraction
 def init_normz(cfg):
 
     # -- unpack --
-    econfig.set_cfg(cfg)
+    econfig.init(cfg)
     cfgs = econfig({"normz":normz_pairs()})
     if econfig.is_init == True: return
     cfg = cfgs.normz

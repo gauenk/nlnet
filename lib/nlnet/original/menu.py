@@ -12,18 +12,18 @@ dcopy = copy.deepcopy
 import numpy as np
 from easydict import EasyDict as edict
 
+# -- configs --
+from dev_basics.configs import ExtractConfig
+econfig = ExtractConfig(__file__) # init extraction
+extract_config = econfig.extract_config # rename extraction
 
-def fill_menu(_cfgs,fields,menu_cfgs):
+
+def fill_menu(_cfgs,fields,menu_cfgs,mfields):
     """
 
     Fill the input "_cfgs" fields using a menu.
 
     """
-
-    # -- fields to fill --
-    mfields = {"attn":[],
-               "search":["search_name","use_state_update"],
-               "normz":[],"agg":[],}
 
     # -- filling --
     cfgs = []
@@ -37,7 +37,27 @@ def fill_menu(_cfgs,fields,menu_cfgs):
         cfgs.append(cfgs_m)
     return cfgs
 
-def extract_menu_cfg_impl(cfg,depth):
+@econfig.set_init
+def get_blocks(cfg):
+    """
+
+    Extract blocks
+
+    """
+
+    # -- config --
+    econfig.init(cfg)
+    pairs = {"search_menu_name":"full",
+             "search_v0":"exact","search_v1":"refine"}
+    cfg = econfig.extract_pairs(cfg,pairs)
+    # -- finish args --
+    if econfig.is_init: return
+
+
+    # -- init --
+    depths = cfg.arch_depth
+    nblocks = 2*np.sum(depths[:-1]) + depths[-1]
+
     # -- unpack attn name --
     # ...
 
@@ -45,11 +65,7 @@ def extract_menu_cfg_impl(cfg,depth):
     # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
     search_menu_name = cfg.search_menu_name
     v0,v1 = cfg.search_v0,cfg.search_v1
-    search_names = search_menu(search_menu_name,depth,v0,v1)
-
-    # -- search params from names --
-    nblocks = len(search_names)
-    params = search_params_from_names(search_names,nblocks)
+    search_params = search_menu(depths,search_menu_name,v0,v1)
 
     # -- unpack normz name --
     # ...
@@ -57,50 +73,61 @@ def extract_menu_cfg_impl(cfg,depth):
     # -- unpack agg name --
     # ...
 
-    # -- grouped pairs --
-    pairs = {"search_name":search_names,"use_state_update":params.use_state_updates}
-    L = len(search_names)
 
-    # -- format return value; a list of pydicts --
+    # # -- arch params --
+    # arch_params = arch_menu(search_params)
+
+    # -- expand out blocks --
     blocks = []
-    for l in range(L):
+    params = [search_params]
+    for l in range(nblocks):
         block_l = edict()
-        for key,val_list in pairs.items():
-            block_l[key] = val_list[l]
+        for param in params:
+            for key,val_list in param.items():
+                block_l[key] = val_list[l]
         blocks.append(block_l)
 
     return blocks
 
-def search_params_from_names(search_names,nblocks):
+def search_menu(depths,menu_name,v0,v1):
+
+    # -- init --
+    params = edict()
+    params.search_name = get_search_names(menu_name,depths,v0,v1)
+    params.use_state_update = get_use_state_updates(params.search_name)
+    return params
+
+def get_use_state_updates(search_names):
     """
     Create derived parameters from parsed parameters
 
     """
-
-    # -- init --
-    params = edict()
-    params.use_state_updates = []
-
     # -- fill --
+    nblocks = len(search_names)
+    any_refine = np.any(np.array(search_names)=="refine")
+    use_state_updates = []
     for i in range(nblocks):
-        any_refine = np.any(np.array(search_names)=="refine")
-        params.use_state_updates.append(any_refine)
-    return params
+        use_state_updates.append(any_refine)
+    return use_state_updates
 
-def search_menu(menu_name,depth,v0,v1):
-    nblocks = 2*np.sum(depth[:-1]) + depth[-1]
+def get_search_names(menu_name,depths,v0,v1):
+    nblocks = 2*np.sum(depths[:-1]) + depths[-1]
 
     if menu_name == "full":
         return [v0,]*nblocks
     elif menu_name == "one":
         return [v0,] + [v1,]*(nblocks-1)
+    elif menu_name == "once_video":
+        return [v1,]*(nblocks)
+    elif menu_name == "once_features":
+        return [v1,]*(nblocks)
     elif menu_name == "first":
         names = []
-        for depth_i in depth:
-            names_i = [v0,] + [v1,]*(depth_i-1)
+        for depths_i in depths:
+            names_i = [v0,] + [v1,]*(depths_i-1)
             names.extend(names_i)
-        for depth_i in reversed(depth[:-1]):
-            names_i = [v0,] + [v1,]*(depth_i-1)
+        for depths_i in reversed(depths[:-1]):
+            names_i = [v0,] + [v1,]*(depths_i-1)
             names.extend(names_i)
         return names
     elif menu_name == "nth":
@@ -112,5 +139,5 @@ def search_menu(menu_name,depth,v0,v1):
                 names.append(v1)
         return names
     else:
-        raise ValeError("Uknown search type in menu [%s]" % menu_name)
+        raise ValueError("Uknown search type in menu [%s]" % menu_name)
 
