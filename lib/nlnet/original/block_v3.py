@@ -98,7 +98,6 @@ class BlockV3(nn.Module):
 
         sk_vid = self.sk_attn(vid)
 
-
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         #           Combo
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-

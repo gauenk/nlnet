@@ -10,7 +10,9 @@ import torch as th
 import torch.nn as nn
 from einops import rearrange
 import dnls
-import n3net
+
+# -- local --
+from.utils import indexed_matmul_2_efficient,vid_to_raster_inds
 
 def init(cfg):
     return PdbAgg(cfg.k_a,cfg.ps,cfg.pt,cfg.stride0,cfg.pdbagg_chunk_size)
@@ -46,7 +48,7 @@ class PdbAgg(nn.Module):
         inds  = rearrange(inds,"B HD Q K tr -> (B HD) Q K 1 tr")
 
         # -- convert inds --
-        inds = n3net.vid_to_raster_inds(inds,iH,iW,stride0,dev)[0] # from inds[None,:]
+        inds = vid_to_raster_inds(inds,iH,iW,stride0,dev)[0] # from inds[None,:]
 
         # -- get patches --
         patches = self.unfold(vid)
@@ -54,8 +56,8 @@ class PdbAgg(nn.Module):
         patches = rearrange(patches,shape_str,HD=nheads)
 
         # -- accumulate! --
-        patches = n3net.indexed_matmul_2_efficient(patches, dists, inds, 
-                                                   chunk_size=self.chunk_size)
+        patches = indexed_matmul_2_efficient(patches, dists, inds,
+                                             chunk_size=self.chunk_size)
         # assert patches.shape[-1] == 1
 
 

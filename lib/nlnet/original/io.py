@@ -180,6 +180,8 @@ def shared_defaults():
     pairs = {"embed_dim":1,
              "arch_nheads":[1,1,1],
              "arch_depth":[1,1,1]}
+             # "arch_nheads":[1,1,1],
+             # "arch_depth":[1,1,1]}
     # cfg = econfig.extract_pairs(_cfg,pairs,new=False)
     # cfg.nblocklists = 2*(len(cfg.depth)-1)+1
     # cfg.nblocks = 2*np.sum(cfg.depth[:-1]) * cfg.depth[-1]

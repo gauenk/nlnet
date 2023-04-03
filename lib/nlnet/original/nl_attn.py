@@ -50,6 +50,7 @@ class NonLocalAttention(nn.Module):
         embed_dim = attn_cfg.embed_dim
         nheads = attn_cfg.nheads
         dim = embed_dim * nheads
+        # print("nheads: ",nheads)
 
         # -- init configs --
         self.dim = dim

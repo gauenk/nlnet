@@ -17,11 +17,11 @@ def run_exp(cfg):
     model = nlnet.load_model(net_cfg)
     cfg.device = net_cfg.device
     # print(cfg)
-    
+
     # -- init timers --
     timer = ExpTimer()
     memer = GpuMemer()
-    
+
     # -- init cuda --
     video = th.randn((1,2,3,64,64),device=cfg.device)
     flows = edict()
@@ -29,7 +29,7 @@ def run_exp(cfg):
     flows.bflow = th.randn((1,2,2,64,64),device=cfg.device)
     with th.no_grad():
         deno = model(video,flows)
-        
+
     # -- real test --
     B,T,C,H,W = cfg.B,cfg.T,3,cfg.H,cfg.W
     video = th.randn((B,T,C,H,W),device=cfg.device)
@@ -41,17 +41,17 @@ def run_exp(cfg):
         with TimeIt(timer,"fwd"):
             with MemIt(memer,"fwd"):
                 deno = model(video,flows)
-    
+
     # print(timer)
     # print(memer)
     # print(deno.shape)
-    
+
     loss = th.mean((deno - clean)**2)
     with TimeIt(timer,"bwd"):
         with MemIt(memer,"bwd"):
             pass
             # loss.backward()
-    
+
     # print(timer)
     # print(memer)
 
@@ -66,6 +66,7 @@ def run_exp(cfg):
 
 def main():
 
+    # -- configs --
     exps_cfg = {"group0":
                 {"embed_dim":[9]},
                 "group1":
