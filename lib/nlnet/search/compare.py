@@ -4,7 +4,7 @@
 import torch as th
 
 # -- flow --
-import dnls
+import stnls
 from dev_basics import flow
 
 # -- timing --
@@ -36,17 +36,17 @@ def run(cfg):
     # -- run optial flow --
     flows = flow.orun(vid,False)
     fflow,bflow = flows.fflow,flows.bflow
-    aflows = dnls.nn.accumulate_flow(flows,stride0=cfg.stride0)
+    aflows = stnls.nn.accumulate_flow(flows,stride0=cfg.stride0)
     afflow,abflow = aflows.fflow,aflows.bflow
 
     # -- get the inds --
-    nl_search = dnls.search.NonLocalSearch(cfg.ws,cfg.wt,cfg.ps,cfg.k,nheads=cfg.nheads)
+    nl_search = stnls.search.NonLocalSearch(cfg.ws,cfg.wt,cfg.ps,cfg.k,nheads=cfg.nheads)
     _,inds = nl_search(vid,vid,fflow,bflow)
     th.cuda.synchronize()
 
     # -- setup comparison function --
     search = api.init(cfg)
-    search_fxn = dnls.search.utils.search_wrap(cfg.search_name,search)
+    search_fxn = stnls.search.utils.search_wrap(cfg.search_name,search)
     # search_fxn = search.setup_compare(vid,flows,aflows,inds)
 
     # -- prepare-run -

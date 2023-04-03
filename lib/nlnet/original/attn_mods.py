@@ -1,5 +1,5 @@
 # -- misc --
-import dnls
+import stnls
 from copy import deepcopy as dcopy
 from easydict import EasyDict as edict
 from ..utils import optional
@@ -17,7 +17,7 @@ register_method = clean_code.register_method(__methods__)
 # @register_method
 # def init_search(self,search_name,search_cfg):
 #     search_cfg.search_name = search_name
-#     return dnls.search.init(search_cfg)
+#     return stnls.search.init(search_cfg)
 #     # if "full" in search_name:
 #     #     search = self.init_full(search_cfg)
 #     # elif "approx" in search_name:
@@ -44,7 +44,7 @@ register_method = clean_code.register_method(__methods__)
 #     full_ws = False
 #     fflow,bflow = None,None
 #     use_self = anchor_self
-#     search = dnls.search.init("prod_with_index", fflow, bflow,
+#     search = stnls.search.init("prod_with_index", fflow, bflow,
 #                               k, ps, pt, ws, wt,oh0, ow0, oh1, ow1, chnls=-1,
 #                               dilation=dilation, stride0=stride0,stride1=stride1,
 #                               reflect_bounds=reflect_bounds,use_k=use_k,
@@ -71,7 +71,7 @@ register_method = clean_code.register_method(__methods__)
 #     full_ws = False
 #     fflow,bflow = None,None
 #     use_self = anchor_self
-#     search = dnls.search.init("prod_with_index", fflow, bflow,
+#     search = stnls.search.init("prod_with_index", fflow, bflow,
 #                               k, ps, pt, ws, wt,oh0, ow0, oh1, ow1, chnls=-1,
 #                               dilation=dilation, stride0=stride0,stride1=stride1,
 #                               reflect_bounds=reflect_bounds,use_k=use_k,
@@ -91,7 +91,7 @@ register_method = clean_code.register_method(__methods__)
 #     nheads = 1
 #     anchor_self = False
 #     use_self = anchor_self
-#     search = dnls.search.init("prod_refine", k, ps, pt, ws_r, ws, nheads,
+#     search = stnls.search.init("prod_refine", k, ps, pt, ws_r, ws, nheads,
 #                               chnls=-1,dilation=dilation,
 #                               stride0=stride0, stride1=stride1,
 #                               reflect_bounds=reflect_bounds,use_k=use_k,
@@ -110,7 +110,7 @@ def init_fold(self,vshape,device):
     stride0 = self.stride0
     only_full = False
     reflect_bounds = True
-    fold = dnls.iFoldz(vshape,None,stride=stride0,dilation=dil,
+    fold = stnls.iFoldz(vshape,None,stride=stride0,dilation=dil,
                        adj=0,only_full=only_full,
                        use_reflect=reflect_bounds,device=device)
     return fold

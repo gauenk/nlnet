@@ -9,7 +9,7 @@ from functools import partial
 from easydict import EasyDict as edict
 
 # -- searching --
-import dnls
+import stnls
 
 # -- network --
 from . import menu
@@ -258,7 +258,7 @@ def create_downsample_cfg(bcfgs):
     return cfgs
 
 # def extract_search_cfg(cfg):
-#     cfg = dnls.search.extract_config(cfg)
+#     cfg = stnls.search.extract_config(cfg)
 #     cfg = cfg | {"use_flow":True,"scale":2,
 #                  "kr_t":-1,"wr_t":-1,
 #                  "kr_s":-1,"wr_s":-1}

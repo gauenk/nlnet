@@ -5,7 +5,7 @@ Non-local Search with Approximate Temporal Search
 """
 
 
-import dnls
+import stnls
 import torch as th
 import torch.nn as nn
 from einops import rearrange
@@ -22,7 +22,7 @@ def get_exact_search(k,ps,ws,wt,nheads,stride0,stride1):
     rbwd,exact = False,False
     anchor_self = False
     use_self = anchor_self
-    search = dnls.search.init("prod_with_heads", fflow, bflow,
+    search = stnls.search.init("prod_with_heads", fflow, bflow,
                               k, ps, pt, ws, wt, nheads, chnls=-1,
                               dilation=dil, stride0=stride0,stride1=stride1,
                               h0_off=0,w0_off=0,h1_off=0,w1_off=0,
@@ -45,7 +45,7 @@ def get_refine_search(k,ps,ws_r,ws,nheads,stride0,stride1):
     rbwd,exact = False,False
     anchor_self = True
     use_self = anchor_self
-    search = dnls.search.init("prod_refine",  k, ps, pt, ws_r, ws,
+    search = stnls.search.init("prod_refine",  k, ps, pt, ws_r, ws,
                               nheads, chnls=-1, dilation=dil,
                               stride0=stride0,stride1=stride1,
                               reflect_bounds=reflect_bounds,use_k=use_k,
@@ -100,7 +100,7 @@ class NLSApproxTime(nn.Module):
 
     # -- Class Logic --
     def apply_offsets(self,inds,flows):
-        inds_t = dnls.nn.temporal_inds(inds[:,0],flows,self.wt)
+        inds_t = stnls.nn.temporal_inds(inds[:,0],flows,self.wt)
         inds_t = rearrange(inds_t,'b q k s tr -> b 1 (q s) k tr')
         inds_t = inds_t.contiguous()
         return inds_t

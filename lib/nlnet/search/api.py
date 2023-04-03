@@ -1,7 +1,7 @@
 
-# -- dnls --
+# -- stnls --
 import torch as th
-import dnls
+import stnls
 
 # -- modules --
 import importlib
@@ -36,17 +36,17 @@ def init_search(cfg):
 
     # -- create module --
     print(cfg.search_name)
-    dnls_names = ["exact","nlat","nlas","approx_t","approx_s","approx_st","nlast",
+    stnls_names = ["exact","nlat","nlas","approx_t","approx_s","approx_st","nlast",
                   "nl","nls","refine","refinement"]
-    if cfg.search_name in dnls_names:
-        print("dnls.")
-        return load_dnls(cfg)
+    if cfg.search_name in stnls_names:
+        print("stnls.")
+        return load_stnls(cfg)
     else:
         print("local.")
         return load_local(cfg)
 
-def load_dnls(search_cfg):
-    return dnls.search.init(search_cfg)
+def load_stnls(search_cfg):
+    return stnls.search.init(search_cfg)
 
 def load_local(cfg):
     modules = {"nat":"nat"}
@@ -60,7 +60,7 @@ def init(cfg):
     return init_search(cfg)
 
 def search_pairs():
-    # pairs0 = dnls.search.extract_config(cfg)
+    # pairs0 = stnls.search.extract_config(cfg)
     pairs0 = {}
     pairs1 = {"ws":21,"wt":0,"ps":7,"k":10,"kr":1.,"wr":1,
               "wr_s":1,"kr_s":10,"wr_t":1,"kr_t":10,"scale":2,
@@ -91,7 +91,7 @@ def run_search(vid0,vid1,state,cfg):
     return dists,inds
 
     # if state is None:
-    #     # -- dnls search --
+    #     # -- stnls search --
     #     B, T, _, H, W = q_vid.shape
     #     qstart,stride0 = 0,cfg.stride0
     #     ntotal = T*((H-1)//stride0+1)*((W-1)//stride0+1)

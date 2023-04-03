@@ -1,7 +1,7 @@
 
 import torch as th
 import torch.nn as nn
-import dnls
+import stnls
 from einops import rearrange
 
 from . import state_mod
@@ -20,7 +20,7 @@ def get_search(k,ps,ws_r,ws,nheads,stride0,stride1):
     rbwd,exact = False,False
     anchor_self = True
     use_self = anchor_self
-    search = dnls.search.init("prod_refine",  k, ps, pt, ws_r, ws,
+    search = stnls.search.init("prod_refine",  k, ps, pt, ws_r, ws,
                               nheads, chnls=-1, dilation=dil,
                               stride0=stride0,stride1=stride1,
                               reflect_bounds=reflect_bounds,use_k=use_k,

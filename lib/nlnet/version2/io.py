@@ -9,7 +9,7 @@ from functools import partial
 from easydict import EasyDict as edict
 
 # -- searching --
-import dnls
+import stnls
 
 # -- network --
 from .net import SrNet
