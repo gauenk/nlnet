@@ -129,7 +129,7 @@ def extract_search_config(_cfg,optional,nblocks):
              "reflect_bounds":False,
              "refine_inds":False,
              "dilation":1,"return_inds":False,
-             "search_type":"dnls_prod","nheads":None,
+             "search_type":"stnls_prod","nheads":None,
              "use_flow":True,
     }
 

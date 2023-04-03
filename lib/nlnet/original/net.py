@@ -13,7 +13,7 @@ from einops import rearrange,repeat
 from functools import partial
 
 # -- extra deps --
-import dnls
+import stnls
 from timm.models.layers import trunc_normal_
 
 # -- project deps --
@@ -116,7 +116,7 @@ class SrNet(nn.Module):
         search_cfg.nheads = arch_cfg.arch_nheads[0]
         if self.use_search_input == "video":
             search_cfg.nheads = 1
-        self.search = dnls.search.init(search_cfg)
+        self.search = stnls.search.init(search_cfg)
 
     def _apply_freeze(self):
         if all([f is False for f in self.freeze]): return
@@ -276,7 +276,7 @@ class SrNet(nn.Module):
         inds[...,2] = th.clip(inds[...,2],min=0,max=W//2-1)
 
         # -- unique across K --
-        inds = dnls.nn.jitter_unique_inds(inds,5,K,H,W)
+        inds = stnls.nn.jitter_unique_inds(inds,5,K,H,W)
 
         return inds
 

@@ -3,7 +3,7 @@
 Pre-computed optical flows
 
 """
-import dnls
+import stnls
 import torch as th
 import torch.nn as nn
 from einops import rearrange
@@ -21,7 +21,7 @@ def get_search(k,ps,ws,wt,nheads,stride0,stride1):
     anchor_self = False
     use_adj = True
     use_self = anchor_self
-    search = dnls.search.init("prod_pf_with_index", fflow, bflow,
+    search = stnls.search.init("prod_pf_with_index", fflow, bflow,
                               k, ps, pt, ws, wt,
                               oh0, ow0, oh1, ow1,
                               chnls=-1,dilation=dil,
@@ -48,7 +48,7 @@ class NLPSearch(nn.Module):
         self.ws = ws
         self.nheads = nheads
         self.search = get_search(k,ps,ws,wt,nheads,stride0,stride1)
-        self.ofa = dnls.nn.init("ofa")
+        self.ofa = stnls.nn.init("ofa")
         self.run_acc = run_acc
 
     # def __call__(self,vid,**kwargs):

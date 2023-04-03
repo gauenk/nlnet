@@ -1,4 +1,4 @@
--e ../dnls
+-e ../stnls
 -e ../cache_io
 -e ../dev_basics
 -e ../data_hub

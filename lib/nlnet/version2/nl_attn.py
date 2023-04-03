@@ -21,7 +21,7 @@ from dev_basics import flow
 # -- project deps --
 from .proj import ConvQKV
 
-import dnls
+import stnls
 # -- search/normalize/aggregate --
 # from .. import search
 from .. import normz
@@ -30,8 +30,8 @@ from .. import agg
 # -- local --
 # from .state import update_state,run_state_search
 
-# -- dnls --
-import dnls
+# -- stnls --
+import stnls
 
 # -- benchmarking --
 from dev_basics.utils.timer import ExpTimer,ExpTimerList
@@ -66,7 +66,7 @@ class NonLocalAttention(nn.Module):
         self.proj_drop = nn.Dropout(attn_cfg.drop_rate_proj)
 
         # -- init attn fxns --
-        self.search = dnls.search.init(search_cfg)
+        self.search = stnls.search.init(search_cfg)
         self.normz = normz.init(normz_cfg)
         self.agg = agg.init(agg_cfg)
 
