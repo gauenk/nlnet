@@ -111,8 +111,8 @@ def init_fold(self,vshape,device):
     only_full = False
     reflect_bounds = True
     fold = stnls.iFoldz(vshape,None,stride=stride0,dilation=dil,
-                       adj=0,only_full=only_full,
-                       use_reflect=reflect_bounds,device=device)
+                        adj=0,only_full=only_full,
+                        use_reflect=reflect_bounds,device=device)
     return fold
 
 

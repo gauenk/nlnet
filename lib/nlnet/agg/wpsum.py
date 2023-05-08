@@ -9,15 +9,13 @@ def init(cfg):
     ps      = cfg.ps
     pt      = cfg.pt
     dil     = cfg.dilation
-    exact = cfg.exact
     reflect_bounds = cfg.reflect_bounds
-    adj = ps//2
 
     # -- init --
-    wpsum = stnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=0, w_off=0,
-                                                dilation=dil,
-                                                reflect_bounds=reflect_bounds,
-                                                adj=adj, exact=exact)
+    wpsum = stnls.reducer.WeightedPatchSum(ps, pt,
+                                           dilation=dil,
+                                           reflect_bounds=reflect_bounds,
+                                           use_adj=False)
 
     return WpSumAgg(cfg.k_a,wpsum)
 
