@@ -9,7 +9,6 @@ def init(cfg):
     ps      = cfg.ps
     pt      = cfg.pt
     dil     = cfg.dilation
-    exact = cfg.exact
     reflect_bounds = cfg.reflect_bounds
     use_adj = False
     # adj = ps//2
