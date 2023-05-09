@@ -123,12 +123,12 @@ def run_fold(self,patches,vshape):
     self.timer.sync_start("fold")
 
     # -- init folding --
-    B,ps = vshape[0],self.search_cfg.ps
+    B,ps,pt = vshape[0],self.search_cfg.ps,self.search_cfg.pt
     fold = self.init_fold(vshape,patches.device)
 
     # -- reshape for folding --
-    shape_str = '(b q ph pw) c -> b q 1 1 c ph pw'
-    patches = rearrange(patches,shape_str,b=B,ph=ps,pw=ps)
+    shape_str = '(b q pt ph pw) c -> b q 1 pt c ph pw'
+    patches = rearrange(patches,shape_str,b=B,pt=pt,ph=ps,pw=ps)
     patches = patches.contiguous()
 
     # -- fold --
