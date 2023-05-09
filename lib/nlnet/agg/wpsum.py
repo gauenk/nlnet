@@ -11,13 +11,13 @@ def init(cfg):
     dil     = cfg.dilation
     exact = cfg.exact
     reflect_bounds = cfg.reflect_bounds
-    adj = ps//2
+    use_adj = False
+    # adj = ps//2
 
     # -- init --
-    wpsum = stnls.reducers.WeightedPatchSumHeads(ps, pt, h_off=0, w_off=0,
-                                                dilation=dil,
-                                                reflect_bounds=reflect_bounds,
-                                                adj=adj, exact=exact)
+    wpsum = stnls.reducer.WeightedPatchSum(ps, pt,dilation=dil,
+                                           reflect_bounds=reflect_bounds,
+                                           use_adj=use_adj, use_atomic=True)
 
     return WpSumAgg(cfg.k_a,wpsum)
 
@@ -45,7 +45,7 @@ class WpSumAgg(nn.Module):
         # -- reshape --
         ps = patches.shape[-1]
         ntotal = dists.shape[-2]
-        shape_str = 'b h q c ph pw -> (b q ph pw) (h c)'
+        shape_str = 'b h q pt c ph pw -> (b q pt ph pw) (h c)'
         patches = rearrange(patches,shape_str)
 
 

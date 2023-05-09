@@ -152,7 +152,6 @@ class SrNet(nn.Module):
 
     def forward(self, vid, flows=None, states=None):
 
-
         # -- unpack --
         b,t,c,h,w = vid.shape
 
