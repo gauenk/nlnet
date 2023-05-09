@@ -2,7 +2,8 @@
 # -- code api --
 from . import original
 # from . import bidir
-from . import lightning
+# from . import lightning
+from dev_basics import lightning
 from .original import extract_config
 from .original import extract_config as extract_model_config
 

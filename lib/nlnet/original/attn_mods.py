@@ -110,9 +110,9 @@ def init_fold(self,vshape,device):
     stride0 = self.stride0
     only_full = False
     reflect_bounds = True
-    fold = stnls.iFoldz(vshape,None,stride=stride0,dilation=dil,
-                        adj=0,only_full=only_full,
-                        use_reflect=reflect_bounds,device=device)
+    fold = stnls.iFoldz(vshape,stride=stride0,dilation=dil,
+                        use_adj=False,only_full=only_full,
+                        reflect_bounds=reflect_bounds,device=device)
     return fold
 
 

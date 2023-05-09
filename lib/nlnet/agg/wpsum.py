@@ -43,8 +43,7 @@ class WpSumAgg(nn.Module):
         # -- reshape --
         ps = patches.shape[-1]
         ntotal = dists.shape[-2]
-        shape_str = 'b h q c ph pw -> (b q ph pw) (h c)'
+        shape_str = 'b h q pt c ph pw -> (b q pt ph pw) (h c)'
         patches = rearrange(patches,shape_str)
-
 
         return patches
