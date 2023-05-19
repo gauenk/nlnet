@@ -18,9 +18,10 @@ from .scaling import Downsample,Upsample # defaults
 
 
 # -- search/normalize/aggregate --
-from .. import search
-from .. import normz
-from .. import agg
+import stnls
+# from .. import search
+# from .. import normz
+# from .. import agg
 
 # -- io --
 # from ..utils import model_io
@@ -98,9 +99,9 @@ def load_model(cfg):
 
     # -- unpack lib dependencies --
     dep_pairs = {"menu":menu.econfig,
-                 "search":search.econfig,
-                 "normz":normz.econfig,
-                 "agg":agg.econfig}
+                 "search":stnls.search.extract_config,
+                 "normz":stnls.normz.extract_config,
+                 "agg":stnls.agg.extract_config}
     cfgs = dcat(cfgs,econfig.extract_dict_of_econfigs(cfg,dep_pairs))
     cfg = dcat(cfg,econfig.flatten(cfgs))
 

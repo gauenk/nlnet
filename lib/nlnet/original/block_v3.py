@@ -7,13 +7,14 @@ from einops import rearrange,repeat
 from timm.models.layers import DropPath
 
 # -- project deps --
-from .nl_attn import NonLocalAttention
+# from .nl_attn import NonLocalAttention
+from stnls.nn import NonLocalAttention
 
 # -- benchmarking --
 from dev_basics.utils.timer import ExpTimerList
 
 # -- clean coding --
-from . import attn_mods
+# from . import attn_mods
 from .shared import get_norm_layer
 from .mlps import init_mlp
 from .sk_conv import SKUnit

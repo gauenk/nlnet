@@ -46,6 +46,7 @@ class NonLocalAttention(nn.Module):
     def __init__(self, attn_cfg, search_cfg, normz_cfg, agg_cfg):
         super().__init__()
 
+        print("DONT USE ME!")
         # -- unpack --
         embed_dim = attn_cfg.embed_dim
         nheads = attn_cfg.nheads
@@ -139,6 +140,7 @@ class NonLocalAttention(nn.Module):
 
     def forward(self, vid, flows=None, state=None):
         # print(self.search,state[0] is None,state[1] is None)
+        print("DONT USE ME!")
 
         # -- init timer --
         self.timer = ExpTimer(self.use_timer)

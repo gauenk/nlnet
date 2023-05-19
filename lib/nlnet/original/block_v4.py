@@ -7,7 +7,8 @@ from einops import rearrange,repeat
 from timm.models.layers import DropPath
 
 # -- project deps --
-from .nl_attn_vid import NonLocalAttentionVideo
+# from .nl_attn_vid import NonLocalAttentionVideo
+from stnls.nn import NonLocalAttention
 
 # -- benchmarking --
 from dev_basics.utils.timer import ExpTimerList
@@ -52,7 +53,7 @@ class BlockV3(nn.Module):
         search = block.search
         normz = block.normz
         agg = block.agg
-        self.attn = NonLocalAttentionVideos(attn,search,normz,agg)
+        self.attn = NonLocalAttention(attn,search,normz,agg)
 
         # -- init local attn --
         self.sk_attn = SKUnit(in_features=edim,
