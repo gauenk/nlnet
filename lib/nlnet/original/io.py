@@ -92,13 +92,13 @@ def load_model(cfg):
     # -- unpack local vars --
     local_pairs = {"io":io_pairs(),
                    "arch":arch_pairs(),
-                   "blocklist":blocklist_pairs(),
-                   "attn":attn_pairs()}
+                   "blocklist":blocklist_pairs()}
     cfgs = econfig.extract_dict_of_pairs(cfg,local_pairs,restrict=True)
     cfg = dcat(cfg,econfig.flatten(cfgs)) # update cfg
 
     # -- unpack lib dependencies --
     dep_pairs = {"menu":menu.econfig,
+                 "attn":stnls.nn.non_local_attn.extract_config,
                  "search":stnls.search.extract_config,
                  "normz":stnls.normz.extract_config,
                  "agg":stnls.agg.extract_config}
@@ -121,12 +121,11 @@ def load_model(cfg):
 
     # -- fill blocks with menu --
     fill_fields = {"attn":[],
-               "search":["search_name","use_state_update"],
-               "normz":[],"agg":[],}
+                   "search":["search_name","use_state_update"],
+                   "normz":[],"agg":[],}
     fields = ["attn","search","normz","agg"]
     menu_blocks = menu.get_blocks(cfg)
     blocks = menu.fill_menu(cfgs,fields,menu_blocks,fill_fields)
-
     # print([block.search.search_name for block in blocks])
     # block_fields = ["attn","search","normz","agg"]
     # block_cfgs = [cfgs[f] for f in block_fields]
@@ -168,14 +167,15 @@ def load_pretrained(model,cfg):
 def update_archs(arch,search_menu_name,ndepth):
     # -> we must have its own search_cfg --
     arch.use_search_input = "none"
-    arch.share_encdec = False
-    # arch.share_encdec = [False,]*ndepth
-    if search_menu_name == "once_video":
-        arch.use_search_input = "video"
-        arch.share_encdec = True#[True,]*ndepth
-    elif search_menu_name == "once_features":
-        arch.use_search_input = "features"
-        arch.share_encdec = True#[True,]*len(depths)
+    arch.share_encdec = True
+    # arch.share_encdec = False
+    # # arch.share_encdec = [False,]*ndepth
+    # if search_menu_name == "once_video":
+    #     arch.use_search_input = "video"
+    #     arch.share_encdec = True#[True,]*ndepth
+    # elif search_menu_name == "once_features":
+    #     arch.use_search_input = "features"
+    #     arch.share_encdec = True#[True,]*len(depths)
 
 def shared_defaults():
     pairs = {"embed_dim":1,
@@ -197,16 +197,16 @@ def io_pairs():
              "pretrained_root":"."}
     return pairs
 
-def attn_pairs():
-    pairs = {"qk_frac":1.,"qkv_bias":True,
-             "token_mlp":'leff',"attn_mode":"default",
-             "token_projection":'linear',
-             "drop_rate_proj":0.,"attn_timer":False}
-    return pairs
+# def attn_pairs():
+#     pairs = {"qk_frac":1.,"qkv_bias":True,
+#              "token_mlp":'leff',"attn_mode":"default",
+#              "token_projection":'linear',
+#              "drop_rate_proj":0.,"attn_timer":False}
+#     return pairs
 
 def blocklist_pairs():
     defs = shared_defaults()
-    info = {"mlp_ratio":4.,"embed_dim":1,"block_version":"v3",
+    info = {"mlp_ratio":4.,"embed_dim":1,"block_version":"v4",
             "freeze":False,"block_mlp":"mlp","norm_layer":"LayerNorm",
             "num_res":3,"res_ksize":3,"nres_per_block":3,}
     training = {"drop_rate_mlp":0.,"drop_rate_path":0.1}
@@ -219,7 +219,8 @@ def arch_pairs():
              "dowsample":"Downsample", "upsample":"Upsample",
              "embed_dim":None,"input_proj_depth":1,
              "output_proj_depth":1,"drop_rate_pos":0.,
-             "attn_timer":False,
+             "attn_timer":False,"use_spynet":True,
+             "spynet_path":None,
     }
     return pairs | defs
 

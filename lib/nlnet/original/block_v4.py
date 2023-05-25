@@ -8,7 +8,7 @@ from timm.models.layers import DropPath
 
 # -- project deps --
 # from .nl_attn_vid import NonLocalAttentionVideo
-from stnls.nn import NonLocalAttention
+from stnls.pytorch.nn import NonLocalAttention
 
 # -- benchmarking --
 from dev_basics.utils.timer import ExpTimerList
@@ -17,11 +17,11 @@ from dev_basics.utils.timer import ExpTimerList
 from . import attn_mods
 from .shared import get_norm_layer
 from .mlps import init_mlp
-from .sk_conv import SKUnit
+# from .sk_conv import SKUnit
 from .res import ResBlockList
 from .misc import LayerNorm2d
 
-class BlockV3(nn.Module):
+class BlockV4(nn.Module):
 
     def __init__(self, btype, blocklist, block):
         super().__init__()
@@ -55,23 +55,12 @@ class BlockV3(nn.Module):
         agg = block.agg
         self.attn = NonLocalAttention(attn,search,normz,agg)
 
-        # -- init local attn --
-        self.sk_attn = SKUnit(in_features=edim,
-                              out_features=edim,M=2,G=8,r=2)
-
         # -- init non-linearity --
         dprate = blocklist.drop_rate_path
         ksize = block.res.res_ksize
         nres = block.res.nres_per_block
         self.res = ResBlockList(nres, edim, ksize)
         self.drop_path = DropPath(dprate) if dprate > 0. else nn.Identity()
-
-        # -- init combining layers [local vs non-local select] --
-        vector_length = 32
-        self.fc_share = nn.Linear(in_features=edim,out_features=vector_length)
-        self.fc_0 = nn.Linear(in_features=vector_length,out_features=edim)
-        self.fc_1 = nn.Linear(in_features=vector_length,out_features=edim)
-        self.softmax = nn.Softmax(dim=1)
 
     def extra_repr(self) -> str:
         return str(self.blocklist)
@@ -102,16 +91,6 @@ class BlockV3(nn.Module):
         vid = vid + self.drop_path(self.res(vid))
 
         return vid
-
-    def compute_pair_weights(self,combo):
-        U = th.sum(combo,dim=1)
-        attn_vec = U.mean(-1).mean(-1)
-        attn_vec = self.fc_share(attn_vec)
-        attn_vec_0 = self.fc_0(attn_vec)
-        attn_vec_1 = self.fc_1(attn_vec)
-        vector = th.stack((attn_vec_0,attn_vec_1),dim=1)
-        vector = self.softmax(vector)[...,None,None]
-        return vector
 
     def flops(self,H,W):
         flops = 0

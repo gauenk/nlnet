@@ -23,7 +23,7 @@ from pytorch_lightning import Callback
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import StochasticWeightAveraging
-from pytorch_lightning.utilities.distributed import rank_zero_only
+from pytorch_lightning.utilities.rank_zero import rank_zero_only
 
 # -- dev basics --
 # from dev_basics.report import deno_report

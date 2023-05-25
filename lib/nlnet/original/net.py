@@ -10,7 +10,10 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange,repeat
+
+# -- misc --
 from functools import partial
+from easydict import EasyDict as edict
 
 # -- extra deps --
 import stnls
@@ -22,6 +25,7 @@ from .blocklist import BlockList
 from .scaling import Downsample,Upsample
 from .proj import InputProj,InputProjSeq,OutputProj,OutputProjSeq
 from ..utils.model_utils import apply_freeze,cfgs_slice
+from .spynet import SpyNet
 
 # -- benchmarking --
 from ..utils.timer import ExpTimerList
@@ -42,6 +46,10 @@ class SrNet(nn.Module):
         block_keys = ["blocklist","attn","search","normz","agg"]
         self.use_search_input = arch_cfg.use_search_input
         self.share_encdec = arch_cfg.share_encdec
+
+        # -- [optional] optical flow --
+        self.spynet = SpyNet(arch_cfg.spynet_path)
+        # print("spynet.")
 
         # -- dev --
         self.inspect_print = False
@@ -155,6 +163,10 @@ class SrNet(nn.Module):
         # -- unpack --
         b,t,c,h,w = vid.shape
 
+        # -- run flows --
+        # if flows is None:
+        flows = self.compute_flow(vid)
+
         # -- Input Projection --
         y = self.input_proj(vid)
         y = self.pos_drop(y)
@@ -209,7 +221,7 @@ class SrNet(nn.Module):
             z = dec(z,flows=flows,state=states_i)
             self.iprint("[dec] i: %d" % i,z.shape)
 
-            # # -- update state --
+            # -- update state --
             # states_i = self.up_states(states_i)
 
         # -- Output Projection --
@@ -246,6 +258,42 @@ class SrNet(nn.Module):
 
         return th.cat([z,enc],dim)
 
+
+    def compute_flow(self, lqs):
+        """Compute optical flow using SPyNet for feature alignment.
+
+        Note that if the input is an mirror-extended sequence, 'flows_forward'
+        is not needed, since it is equal to 'flows_backward.flip(1)'.
+
+        Args:
+            lqs (tensor): Input low quality (LQ) sequence with
+                shape (n, t, c, h, w).
+
+        Return:
+            tuple(Tensor): Optical flow. 'flows_forward' corresponds to the
+                flows used for forward-time propagation (current to previous).
+                'flows_backward' corresponds to the flows used for
+                backward-time propagation (current to next).
+        """
+
+        n, t, c, h, w = lqs.size()
+        lqs_1 = lqs[:, :-1, :, :, :].reshape(-1, c, h, w)
+        lqs_2 = lqs[:, 1:, :, :, :].reshape(-1, c, h, w)
+        zflow = th.zeros((n,1,2,h,w),device=lqs.device)
+
+        flows_backward = self.spynet(lqs_1, lqs_2).view(n, t - 1, 2, h, w)
+        flows_backward = th.cat([zflow,flows_backward],1)
+
+        # if self.is_mirror_extended:  # flows_forward = flows_backward.flip(1)
+        #     flows_forward = None
+        # else:
+        flows_forward = self.spynet(lqs_2, lqs_1).view(n, t - 1, 2, h, w)
+        flows_forward = th.cat([flows_forward,zflow],1)
+
+        flows = edict()
+        flows.fflow = flows_forward
+        flows.bflow = flows_backward
+        return flows
 
     def down_states(self,states):
         return [self.down_inds(states[0]),self.down_inds(states[1])]

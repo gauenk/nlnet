@@ -57,6 +57,7 @@ def get_blocks(cfg):
     # -- init --
     depths = cfg.arch_depth
     nblocks = 2*np.sum(depths[:-1]) + depths[-1]
+    print("nblocks: ",nblocks)
 
     # -- unpack attn name --
     # ...
@@ -122,6 +123,15 @@ def get_search_names(menu_name,depths,v0,v1):
     elif menu_name == "once_features":
         return [v1,]*(nblocks)
     elif menu_name == "first":
+        names = []
+        for depths_i in depths:
+            names_i = [v0,] + [v1,]*(depths_i-1)
+            names.extend(names_i)
+        for depths_i in reversed(depths[:-1]):
+            names_i = [v1,] + [v1,]*(depths_i-1)
+            names.extend(names_i)
+        return names
+    elif menu_name == "first_each": # share_encdec = False
         names = []
         for depths_i in depths:
             names_i = [v0,] + [v1,]*(depths_i-1)

@@ -26,8 +26,8 @@ from . import agg
 from .agg import init_agg#,extract_agg_config
 
 # -- [dev] api for train/test --
-from . import train_model
-from . import test_model
+# from . import train_model
+# from . import test_model
 
 # -- model api --
 from .utils import optional
