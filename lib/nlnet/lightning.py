@@ -89,7 +89,7 @@ def lit_pairs():
              "sgd_momentum":0.1,"sgd_dampening":0.1,
              "coswr_T0":-1,"coswr_Tmult":1,"coswr_eta_min":1e-9,
              "step_lr_multisteps":"30-50",
-             "spynet_global_step":30000}
+             "spynet_global_step":-1}
     return pairs
 
 def sim_pairs():
@@ -113,7 +113,7 @@ class LitModel(pl.LightningModule):
         lit_cfg = init_cfg(lit_cfg).lit
         for key,val in lit_cfg.items():
             setattr(self,key,val)
-        self.set_flow_epoch() # only for current exps; makes last 10 epochs with opt. flow.
+        self.set_flow_epoch()
         self.net = net
         self.sim_model = sim_model
         self.gen_loger = logging.getLogger('lightning')
@@ -203,8 +203,8 @@ class LitModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
 
         # -- check spynet --
-        if self.global_step > self.spynet_global_step:
-            if "spynet" in self.net:
+        if self.global_step == self.spynet_global_step:
+            if hasattr(self.net,"spynet"):
                 self.net.spynet.train()
 
         # -- sample noise from simulator --

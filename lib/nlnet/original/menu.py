@@ -57,7 +57,7 @@ def get_blocks(cfg):
     # -- init --
     depths = cfg.arch_depth
     nblocks = 2*np.sum(depths[:-1]) + depths[-1]
-    print("nblocks: ",nblocks)
+    # print("nblocks: ",nblocks)
 
     # -- unpack attn name --
     # ...
