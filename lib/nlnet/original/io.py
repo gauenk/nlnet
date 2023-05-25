@@ -145,7 +145,7 @@ def load_model(cfg):
 
     # -- init model --
     model = SrNet(cfgs.arch,cfgs.search,blocklists,scales,blocks)
-    model.spynet.eval()
+    # model.spynet.eval()
 
     # -- load model --
     load_pretrained(model,cfgs.io)

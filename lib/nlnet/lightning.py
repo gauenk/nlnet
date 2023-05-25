@@ -89,7 +89,7 @@ def lit_pairs():
              "sgd_momentum":0.1,"sgd_dampening":0.1,
              "coswr_T0":-1,"coswr_Tmult":1,"coswr_eta_min":1e-9,
              "step_lr_multisteps":"30-50",
-             "spynet_global_step":-1}
+             "spynet_global_step":-1,"limit_train_batches":-1}
     return pairs
 
 def sim_pairs():
@@ -159,6 +159,7 @@ class LitModel(pl.LightningModule):
         return [optim], [sched]
 
     def configure_scheduler(self,optim):
+        print("self.scheduler_name: ",self.scheduler_name)
         if self.scheduler_name in ["default","exp_decay"]:
             gamma = math.exp(math.log(self.lr_final/self.lr_init)/self.nepochs)
             ExponentialLR = th.optim.lr_scheduler.ExponentialLR
@@ -176,6 +177,7 @@ class LitModel(pl.LightningModule):
             scheduler = {"scheduler": scheduler, "interval": "epoch", "frequency": 1}
         elif self.scheduler_name in ["cosa_step"]:
             nsteps = self.num_steps()
+            print("[CosAnnLR] nsteps: ",nsteps)
             CosAnnLR = th.optim.lr_scheduler.CosineAnnealingLR
             scheduler = CosAnnLR(optim,nsteps)
             scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
@@ -238,24 +240,20 @@ class LitModel(pl.LightningModule):
         cleans = th.cat(cleans)
 
         # -- log --
-        self.log("train_loss", loss.item(), on_step=True,
-                 on_epoch=False,batch_size=self.batch_size)
-
-        # -- terminal log --
         val_psnr = np.mean(compute_psnrs(denos,cleans,div=1.)).item()
         # val_ssim = np.mean(compute_ssims(denos,cleans,div=1.)).item() # too slow.
         self.log("train_loss", loss.item(), on_step=True,
-                 on_epoch=False, batch_size=self.batch_size)
+                 on_epoch=False, batch_size=self.batch_size, sync_dist=True)
         self.log("train_psnr", val_psnr, on_step=True,
-                 on_epoch=False, batch_size=self.batch_size)
+                 on_epoch=False, batch_size=self.batch_size, sync_dist=True)
         lr = self.optimizers()._optimizer.param_groups[-1]['lr']
         self.log("lr", lr, on_step=True,
-                 on_epoch=False, batch_size=self.batch_size)
+                 on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         self.log("global_step", self.global_step, on_step=True,
-                 on_epoch=False, batch_size=self.batch_size)
+                 on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         # self.log("train_ssim", val_ssim, on_step=True,
         #          on_epoch=False, batch_size=self.batch_size)
-        self.gen_loger.info("train_psnr: %2.2f" % val_psnr)
+        # self.gen_loger.info("train_psnr: %2.2f" % val_psnr)
 
         return loss
 
@@ -378,9 +376,13 @@ class LitModel(pl.LightningModule):
     def num_steps(self) -> int:
         """Get number of steps"""
         # Accessing _data_source is flaky and might break
-        dataset = self.trainer.fit_loop._data_source.dataloader()
-        dataset_size = len(dataset)
-        num_devices = max(1, self.trainer.num_devices)
+        if self.limit_train_batches > 0:
+            dataset_size = self.limit_train_batches
+            num_devices = 1
+        else:
+            dataset = self.trainer.fit_loop._data_source.dataloader()
+            dataset_size = len(dataset)
+            num_devices = max(1, self.trainer.num_devices)
         acc = self.trainer.accumulate_grad_batches
         num_steps = dataset_size * self.trainer.max_epochs // (acc * num_devices)
         return num_steps
