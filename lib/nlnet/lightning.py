@@ -159,7 +159,6 @@ class LitModel(pl.LightningModule):
         return [optim], [sched]
 
     def configure_scheduler(self,optim):
-        print("self.scheduler_name: ",self.scheduler_name)
         if self.scheduler_name in ["default","exp_decay"]:
             gamma = math.exp(math.log(self.lr_final/self.lr_init)/self.nepochs)
             ExponentialLR = th.optim.lr_scheduler.ExponentialLR
