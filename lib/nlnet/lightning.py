@@ -156,9 +156,11 @@ class LitModel(pl.LightningModule):
         else:
             raise ValueError(f"Unknown optim [{self.optim_name}]")
         sched = self.configure_scheduler(optim)
+        print(sched)
         return [optim], [sched]
 
     def configure_scheduler(self,optim):
+
         if self.scheduler_name in ["default","exp_decay"]:
             gamma = math.exp(math.log(self.lr_final/self.lr_init)/self.nepochs)
             ExponentialLR = th.optim.lr_scheduler.ExponentialLR
@@ -178,7 +180,7 @@ class LitModel(pl.LightningModule):
             nsteps = self.num_steps()
             print("[CosAnnLR] nsteps: ",nsteps)
             CosAnnLR = th.optim.lr_scheduler.CosineAnnealingLR
-            scheduler = CosAnnLR(optim,nsteps)
+            scheduler = CosAnnLR(optim,T_max=nsteps)
             scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
         elif self.scheduler_name in ["multi_step"]:
             milestones = [int(x) for x in self.step_lr_multisteps.split("-")]
