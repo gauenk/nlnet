@@ -120,7 +120,7 @@ def load_model(cfg):
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
     # -- fill blocks with menu --
-    fill_fields = {"attn":[],
+    fill_fields = {"attn":["qk_frac"],
                    "search":["search_name","use_state_update"],
                    "normz":[],"agg":[],}
     fields = ["attn","search","normz","agg"]
@@ -179,8 +179,7 @@ def update_archs(arch,search_menu_name,ndepth):
     #     arch.share_encdec = True#[True,]*len(depths)
 
 def shared_defaults():
-    pairs = {"embed_dim":1,
-             "arch_nheads":[1,1,1],
+    pairs = {"arch_nheads":[1,1,1],
              "arch_depth":[1,1,1]}
              # "arch_nheads":[1,1,1],
              # "arch_depth":[1,1,1]}
@@ -207,8 +206,8 @@ def io_pairs():
 
 def blocklist_pairs():
     defs = shared_defaults()
-    info = {"mlp_ratio":4.,"embed_dim":1,"block_version":"v4",
-            "freeze":False,"block_mlp":"mlp","norm_layer":"LayerNorm",
+    info = {"mlp_ratio":4.,"block_version":"v4",
+            "embed_dim":None,"freeze":False,"block_mlp":"mlp","norm_layer":"LayerNorm",
             "num_res":3,"res_ksize":3,"nres_per_block":3,}
     training = {"drop_rate_mlp":0.,"drop_rate_path":0.1}
     pairs = info | training | defs
@@ -218,7 +217,7 @@ def arch_pairs():
     defs = shared_defaults()
     pairs = {"in_chans":3,"dd_in":3,
              "dowsample":"Downsample", "upsample":"Upsample",
-             "embed_dim":None,"input_proj_depth":1,
+             "input_proj_depth":1,
              "output_proj_depth":1,"drop_rate_pos":0.,
              "attn_timer":False,"use_spynet":True,
              "spynet_path":"./weights/spynet/spynet_sintel_final-3d2a1287.pth",

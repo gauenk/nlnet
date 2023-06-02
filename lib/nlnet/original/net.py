@@ -60,12 +60,13 @@ class SrNet(nn.Module):
 
         # -- input/output --
         nhead0 = blocklists[0].nheads
+        embed_dim0 = blocklists[0].embed_dim
         self.input_proj = InputProjSeq(depth=arch_cfg.input_proj_depth,
                                        in_channel=arch_cfg.dd_in,
-                                       out_channel=arch_cfg.embed_dim*nhead0,
+                                       out_channel=embed_dim0*nhead0,
                                        kernel_size=3, stride=1,
                                        act_layer=nn.LeakyReLU)
-        self.output_proj = OutputProj(in_channel=2*arch_cfg.embed_dim*nhead0,
+        self.output_proj = OutputProj(in_channel=2*embed_dim0*nhead0,
                                       out_channel=arch_cfg.in_chans,
                                       kernel_size=3,stride=1)
 

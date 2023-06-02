@@ -48,7 +48,8 @@ def get_blocks(cfg):
     # -- config --
     econfig.init(cfg)
     pairs = {"search_menu_name":"full",
-             "search_v0":"exact","search_v1":"refine"}
+             "search_v0":"exact","search_v1":"refine",
+             "qk_frac":1.}
     cfg = econfig.extract_pairs(cfg,pairs)
     # -- finish args --
     if econfig.is_init: return
@@ -61,12 +62,15 @@ def get_blocks(cfg):
 
     # -- unpack attn name --
     # ...
+    attn_params = get_attn_params(depths,cfg.qk_frac)
+
 
     # -- unpack search name --
     # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
     search_menu_name = cfg.search_menu_name
     v0,v1 = cfg.search_v0,cfg.search_v1
     search_params = search_menu(depths,search_menu_name,v0,v1)
+
 
     # -- unpack normz name --
     # ...
@@ -80,7 +84,8 @@ def get_blocks(cfg):
 
     # -- expand out blocks --
     blocks = []
-    params = [search_params]
+    params = [attn_params,search_params]
+    # params = [search_params]
     for l in range(nblocks):
         block_l = edict()
         for param in params:
@@ -89,6 +94,31 @@ def get_blocks(cfg):
         blocks.append(block_l)
 
     return blocks
+
+def get_attn_params(depths,qk_fracs):
+
+    # -- init --
+    params = edict()
+    params.qk_frac = []
+    # params.embed_dim = []
+
+    # -- helper --
+    def get_val(val,d,depths_i):
+        if isinstance(val,list): val_d = val[d]
+        else: val_d = val
+        return [val_d,]*depths_i
+
+    # -- downscale --
+    for d,depths_i in enumerate(depths):
+        params.qk_frac.extend(get_val(qk_fracs,d,depths_i))
+        # params.embed_dim.extend(get_val(embed_dims,d,depths_i))
+
+    # -- upscale --
+    for d,depths_i in reversed(list(enumerate(depths[:-1]))):
+        params.qk_frac.extend(get_val(qk_fracs,d,depths_i))
+        # params.embed_dim.extend(get_val(embed_dims,d,depths_i))
+
+    return params
 
 def search_menu(depths,menu_name,v0,v1):
 
