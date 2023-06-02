@@ -87,7 +87,7 @@ def load_model(cfg):
 
     # -- init --
     econfig.init(cfg)
-    device = econfig.optional(cfg,"device","cuda:0")
+    device = econfig.optional(cfg,"device","cuda")
 
     # -- unpack local vars --
     local_pairs = {"io":io_pairs(),
@@ -151,7 +151,7 @@ def load_model(cfg):
     load_pretrained(model,cfgs.io)
 
     # -- device --
-    model = model.to(device)
+    # model = model.to(device)
 
     return model
 

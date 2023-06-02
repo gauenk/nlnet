@@ -242,12 +242,12 @@ class LitModel(pl.LightningModule):
 
         # -- log --
         val_psnr = np.mean(compute_psnrs(denos,cleans,div=1.)).item()
+        lr = self.optimizers()._optimizer.param_groups[-1]['lr']
         # val_ssim = np.mean(compute_ssims(denos,cleans,div=1.)).item() # too slow.
         self.log("train_loss", loss.item(), on_step=True,
-                 on_epoch=False, batch_size=self.batch_size, sync_dist=True)
+                 on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         self.log("train_psnr", val_psnr, on_step=True,
-                 on_epoch=False, batch_size=self.batch_size, sync_dist=True)
-        lr = self.optimizers()._optimizer.param_groups[-1]['lr']
+                 on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         self.log("lr", lr, on_step=True,
                  on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         self.log("global_step", self.global_step, on_step=True,
@@ -325,7 +325,6 @@ class LitModel(pl.LightningModule):
         self.gen_loger.info("val_psnr: %2.2f" % val_psnr)
         self.gen_loger.info("val_ssim: %.3f" % val_ssim)
 
-
     def test_step(self, batch, batch_nb):
 
         # -- sample noise from simulator --
@@ -360,7 +359,8 @@ class LitModel(pl.LightningModule):
         self.log("test_index", index,on_step=True,on_epoch=False,batch_size=1)
         self.log("test_mem_res", mem_res, on_step=True, on_epoch=False, batch_size=1)
         self.log("test_mem_alloc", mem_alloc,on_step=True,on_epoch=False,batch_size=1)
-        self.log("global_step",self.global_step,on_step=True,on_epoch=False,batch_size=1)
+        self.log("global_step",self.global_step,on_step=True,
+                 on_epoch=False,batch_size=1)
         self.gen_loger.info("te_psnr: %2.2f" % psnr)
         self.gen_loger.info("te_ssim: %.3f" % ssim)
 
