@@ -49,7 +49,7 @@ def get_blocks(cfg):
     econfig.init(cfg)
     pairs = {"search_menu_name":"full",
              "search_v0":"exact","search_v1":"refine",
-             "qk_frac":1.,"inner_mult":2}
+             "qk_frac":1.,"inner_mult":2,"nls_normalize_bwd":False}
     cfg = econfig.extract_pairs(cfg,pairs)
     # -- finish args --
     if econfig.is_init: return
@@ -69,7 +69,8 @@ def get_blocks(cfg):
     # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
     search_menu_name = cfg.search_menu_name
     v0,v1 = cfg.search_v0,cfg.search_v1
-    search_params = search_menu(depths,search_menu_name,v0,v1)
+    normalize_bwd = cfg.nls_normalize_bwd
+    search_params = search_menu(depths,search_menu_name,v0,v1,normalize_bwd)
 
 
     # -- unpack normz name --
@@ -123,12 +124,14 @@ def get_attn_params(depths,qk_fracs,inner_mults):
 
     return params
 
-def search_menu(depths,menu_name,v0,v1):
+def search_menu(depths,menu_name,v0,v1,nls_normalize_bwd):
 
     # -- init --
     params = edict()
     params.search_name = get_search_names(menu_name,depths,v0,v1)
     params.use_state_update = get_use_state_updates(params.search_name)
+    L = len(params.use_state_update)
+    params.normalize_bwd = [nls_normalize_bwd,]*L
     return params
 
 def get_use_state_updates(search_names):

@@ -121,7 +121,8 @@ def load_model(cfg):
 
     # -- fill blocks with menu --
     fill_fields = {"attn":["qk_frac","inner_mult"],
-                   "search":["search_name","use_state_update"],
+                   "search":["search_name","use_state_update",
+                             "normalize_bwd"],
                    "normz":[],"agg":[],}
     fields = ["attn","search","normz","agg"]
     menu_blocks = menu.get_blocks(cfg)
