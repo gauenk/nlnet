@@ -49,7 +49,7 @@ def get_blocks(cfg):
     econfig.init(cfg)
     pairs = {"search_menu_name":"full",
              "search_v0":"exact","search_v1":"refine",
-             "qk_frac":1.}
+             "qk_frac":1.,"inner_mult":2}
     cfg = econfig.extract_pairs(cfg,pairs)
     # -- finish args --
     if econfig.is_init: return
@@ -62,7 +62,7 @@ def get_blocks(cfg):
 
     # -- unpack attn name --
     # ...
-    attn_params = get_attn_params(depths,cfg.qk_frac)
+    attn_params = get_attn_params(depths,cfg.qk_frac,cfg.inner_mult)
 
 
     # -- unpack search name --
@@ -95,11 +95,12 @@ def get_blocks(cfg):
 
     return blocks
 
-def get_attn_params(depths,qk_fracs):
+def get_attn_params(depths,qk_fracs,inner_mults):
 
     # -- init --
     params = edict()
     params.qk_frac = []
+    params.inner_mult = []
     # params.embed_dim = []
 
     # -- helper --
@@ -111,11 +112,13 @@ def get_attn_params(depths,qk_fracs):
     # -- downscale --
     for d,depths_i in enumerate(depths):
         params.qk_frac.extend(get_val(qk_fracs,d,depths_i))
+        params.inner_mult.extend(get_val(inner_mults,d,depths_i))
         # params.embed_dim.extend(get_val(embed_dims,d,depths_i))
 
     # -- upscale --
     for d,depths_i in reversed(list(enumerate(depths[:-1]))):
         params.qk_frac.extend(get_val(qk_fracs,d,depths_i))
+        params.inner_mult.extend(get_val(inner_mults,d,depths_i))
         # params.embed_dim.extend(get_val(embed_dims,d,depths_i))
 
     return params

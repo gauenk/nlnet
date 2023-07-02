@@ -13,12 +13,14 @@ def conv(in_channels, out_channels, kernel_size,stride=1, bias=True):
 
 class ResBlockList(nn.Module):
 
-    def __init__(self, nres, n_feats, kernel_size):
+    def __init__(self, nres, n_feats, kernel_size, bn):
         super().__init__()
         if nres > 0:
             res = []
             for _ in range(nres):
                 res.append(ResBlock(conv, n_feats, kernel_size))
+            if bn:
+                res.append(nn.BatchNorm2d(n_feats))
             self.res = nn.Sequential(*res)
         else:
             self.res = nn.Identity()
@@ -31,15 +33,12 @@ class ResBlockList(nn.Module):
         return vid
 
 class ResBlock(nn.Module):
-    def __init__(
-        self, conv, n_feats, kernel_size,
-        bias=True, bn=False, act=nn.PReLU(), res_scale=1):
+    def __init__(self, conv, n_feats, kernel_size,
+                 bias=True, act=nn.PReLU(), res_scale=1):
         super().__init__()
         m = []
         for i in range(2):
             m.append(conv(n_feats, n_feats, kernel_size, bias=bias))
-            if bn:
-                m.append(nn.BatchNorm2d(n_feats))
             if i == 0:
                 m.append(act)
 
@@ -47,6 +46,5 @@ class ResBlock(nn.Module):
         self.res_scale = res_scale
 
     def forward(self, x):
-        res = self.body(x).mul(self.res_scale)
-        res += x
+        res = x + self.body(x).mul(self.res_scale)
         return res

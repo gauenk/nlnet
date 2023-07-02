@@ -3,6 +3,7 @@
 import torch as th
 import torch.nn as nn
 from einops import rearrange,repeat
+from einops.layers.torch import Rearrange
 
 # -- extra deps --
 import math
@@ -23,6 +24,10 @@ class InputProjSeq(nn.Module):
             layers.append(nn.Conv2d(in_channel, out_channel, kernel_size=3,
                                     stride=stride, padding=kernel_size//2))
             layers.append(act_layer(inplace=True))
+            if norm_layer is True:
+                layers.append(Rearrange('n c h w -> n h w c'))
+                layers.append(nn.LayerNorm(out_channel))
+                layers.append(Rearrange('n h w c -> n c h w'))
         self.proj = nn.Sequential(*layers)
 
     def forward(self, x):

@@ -36,15 +36,13 @@ class BlockList(nn.Module):
              for d in range(blocklist.depth)])
 
         # -- residual blocks --
+        # nls_stack = blocklist.use_nls_stack
         mult = 2 if btype == "dec" else 1
         nres = blocklist.num_res
         n_feats = blocklist.embed_dim * blocklist.nheads * mult
         ksize = blocklist.res_ksize
         self.nres = nres
-        if nres > 0:
-            self.res = ResBlockList(blocklist.num_res,n_feats,ksize)
-        else:
-            self.res = []
+        self.res = ResBlockList(blocklist.num_res,n_feats,ksize,blocklist.res_bn)
 
     def extra_repr(self) -> str:
         return str(self.blocklist)
@@ -52,12 +50,15 @@ class BlockList(nn.Module):
     def forward(self, vid, flows=None, state=None):
 
         # -- residual blocks --
-        if self.nres > 0:
-            vid = self.res(vid)
+        vid = self.res(vid)
 
         # -- non-local blocks --
         for blk in self.blocks:
             vid = blk(vid,flows,state)
+
+        # -- a non-local stack --
+        # nls_stack
+
         return vid
 
     def flops(self,h,w):

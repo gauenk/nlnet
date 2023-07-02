@@ -120,7 +120,7 @@ def load_model(cfg):
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
     # -- fill blocks with menu --
-    fill_fields = {"attn":["qk_frac"],
+    fill_fields = {"attn":["qk_frac","inner_mult"],
                    "search":["search_name","use_state_update"],
                    "normz":[],"agg":[],}
     fields = ["attn","search","normz","agg"]
@@ -137,7 +137,8 @@ def load_model(cfg):
 
     # -- fill blocks with blocklists --
     dfill = {"attn":["nheads","embed_dim"],"search":["nheads"],
-             "res":["nres_per_block","res_ksize"]}
+             "res":["nres_per_block","res_ksize","res_bn",
+                    "stg_depth","stg_nheads"]}
     fill_blocks(blocks,blocklists,dfill)
 
     # -- create down/up sample --
@@ -208,7 +209,8 @@ def blocklist_pairs():
     defs = shared_defaults()
     info = {"mlp_ratio":4.,"block_version":"v4",
             "embed_dim":None,"freeze":False,"block_mlp":"mlp","norm_layer":"LayerNorm",
-            "num_res":3,"res_ksize":3,"nres_per_block":3,}
+            "num_res":3,"res_ksize":3,"nres_per_block":3,"res_bn":False,
+            "stg_depth":2,"stg_nheads":4,"up_method":"convT"}
     training = {"drop_rate_mlp":0.,"drop_rate_path":0.1}
     pairs = info | training | defs
     return pairs
@@ -217,7 +219,7 @@ def arch_pairs():
     defs = shared_defaults()
     pairs = {"in_chans":3,"dd_in":3,
              "dowsample":"Downsample", "upsample":"Upsample",
-             "input_proj_depth":1,
+             "input_proj_depth":1,"input_norm_layer":None,
              "output_proj_depth":1,"drop_rate_pos":0.,
              "attn_timer":False,"use_spynet":True,
              "spynet_path":"./weights/spynet/spynet_sintel_final-3d2a1287.pth",
@@ -246,6 +248,7 @@ def create_upsample_cfg(bcfgs):
         if l != start:
             cfg_l.in_dim = 2 * cfg_l.in_dim
         cfg_l.out_dim = bcfgs[l].embed_dim*bcfgs[l].nheads
+        cfg_l.up_method = bcfgs[l].up_method
         cfgs.append(cfg_l)
     return cfgs
 

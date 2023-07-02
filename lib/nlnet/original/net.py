@@ -65,7 +65,8 @@ class SrNet(nn.Module):
                                        in_channel=arch_cfg.dd_in,
                                        out_channel=embed_dim0*nhead0,
                                        kernel_size=3, stride=1,
-                                       act_layer=nn.LeakyReLU)
+                                       act_layer=nn.LeakyReLU,
+                                       norm_layer=arch_cfg.input_norm_layer)
         self.output_proj = OutputProj(in_channel=2*embed_dim0*nhead0,
                                       out_channel=arch_cfg.in_chans,
                                       kernel_size=3,stride=1)
@@ -109,7 +110,8 @@ class SrNet(nn.Module):
             stop = start + blocklists[dec_i].depth
             blocklist_i = blocklists[dec_i]
             blocks_i = [blocks[i] for i in range(start,stop)]
-            up_layer = Upsample(scales[dec_i].in_dim,scales[dec_i].out_dim)
+            up_layer = Upsample(scales[dec_i].in_dim,scales[dec_i].out_dim,
+                                scales[dec_i].up_method)
             dec_layer = BlockList("dec",blocklist_i,blocks_i)
             setattr(self,"upsample_%d" % dec_i,up_layer)
             setattr(self,"decoderlayer_%d" % dec_i,dec_layer)

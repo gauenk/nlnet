@@ -22,8 +22,9 @@ from .mlps import init_mlp
 # from .sk_conv import SKUnit
 from .res import ResBlockList
 from .misc import LayerNorm2d
+from .rstb import RSTBWithInputConv
 
-class BlockV5(nn.Module):
+class BlockV6(nn.Module):
 
     def __init__(self, btype, blocklist, block):
         super().__init__()
@@ -57,23 +58,17 @@ class BlockV5(nn.Module):
         agg = block.agg
         self.attn = NonLocalAttention(attn,search,normz,agg)
 
-        # # -- init proj --
-        # self.proj = nn.Sequential(Rearrange('n d c h w -> n d h w c'),
-        #                           nn.Linear(2*attn.embed_dim,attn.embed_dim),
-        #                           Rearrange('n d h w c -> n d c h w'))
-
         # -- init non-linearity --
         dprate = blocklist.drop_rate_path
         ksize = block.res.res_ksize
         nres = block.res.nres_per_block
         bn = block.res.res_bn
-        self.res = ResBlockList(nres, edim, ksize, bn)
+        stg_depth = block.res.stg_depth
+        stg_nheads = block.res.stg_nheads
+        # self.res = ResBlockList(nres, edim, ksize, bn)
+        self.res = RSTBWithInputConv(edim, ksize, nres, dim=edim,
+                                     depth=stg_depth,num_heads=stg_nheads)
         self.drop_path = DropPath(dprate) if dprate > 0. else nn.Identity()
-
-        # -- init mlp --
-        # self.mlp = nn.Sequential(Rearrange('n d c h w -> n d h w c'),
-        #                          Mlp(edim,2*edim,edim),
-        #                          Rearrange('n d h w c -> n d c h w'))
 
 
     def extra_repr(self) -> str:
@@ -95,7 +90,6 @@ class BlockV5(nn.Module):
 
         vid = self.norm1(vid)
         vid = self.attn(vid, flows=flows, state=state)
-        # vid = self.proj(vid) # back to input dim
 
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         #   Non-Linearity & Residual
