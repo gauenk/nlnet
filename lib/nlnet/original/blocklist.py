@@ -26,7 +26,6 @@ from .res import ResBlockList
 class BlockList(nn.Module):
     def __init__(self, btype, blocklist, blocks):
         super().__init__()
-        num_res = 0
         BlockLayer = get_block_version(blocklist.block_version)
         self.blocklist = blocklist
 
