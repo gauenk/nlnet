@@ -133,7 +133,7 @@ def load_model(cfg):
     # blocks_lib.copy_cfgs(block_cfgs,blocks)
 
     # -- expand blocklists --
-    fields = ["blocklist"]
+    # fields = ["blocklist"]
     blocklists = init_blocklists(cfgs.blocklist,cfg.nblocklists)
 
     # -- fill blocks with blocklists --
