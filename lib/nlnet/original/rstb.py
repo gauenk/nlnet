@@ -447,7 +447,6 @@ class RSTBWithInputConv(nn.Module):
 
         # RSTB blocks
         kwargs['use_checkpoint_attn'] = optional(kwargs,'use_checkpoint_attn',False)
-        # kwargs['use_checkpoint_attn'] = optional(kwargs,'use_checkpoint_attn',True)
         kwargs['use_checkpoint_ffn'] = optional(kwargs,'use_checkpoint_ffn',False)
         # kwargs['use_checkpoint_attn'] = kwargs.pop('use_checkpoint_attn')[0]
         # kwargs['use_checkpoint_ffn'] = kwargs.pop('use_checkpoint_ffn')[0]

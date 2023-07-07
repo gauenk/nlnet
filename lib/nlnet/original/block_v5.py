@@ -71,9 +71,9 @@ class BlockV5(nn.Module):
         self.drop_path = DropPath(dprate) if dprate > 0. else nn.Identity()
 
         # -- init mlp --
-        # self.mlp = nn.Sequential(Rearrange('n d c h w -> n d h w c'),
-        #                          Mlp(edim,2*edim,edim),
-        #                          Rearrange('n d h w c -> n d c h w'))
+        self.mlp = nn.Sequential(Rearrange('n d c h w -> n d h w c'),
+                                 Mlp(edim,2*edim,edim),
+                                 Rearrange('n d h w c -> n d c h w'))
 
 
     def extra_repr(self) -> str:
@@ -103,7 +103,8 @@ class BlockV5(nn.Module):
 
         vid = shortcut + self.drop_path(vid)
         vid = self.norm2(vid)
-        vid = self.res(vid)
+        # vid = self.res(vid)
+        vid = vid + self.drop_path(self.mlp(self.res(vid)))
 
         return vid
 

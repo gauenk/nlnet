@@ -78,14 +78,14 @@ def init_cfg(cfg):
 def lit_pairs():
     pairs = {"batch_size":1,"flow":True,"flow_method":"cv2",
              "isize":None,"bw":False,"lr_init":1e-3,
-             "lr_final":1e-8,"weight_decay":0.,
+             "lr_final":1e-8,"weight_decay":1e-8,
              "nepochs":0,"task":"denoising","uuid":"",
              "scheduler_name":"default","step_lr_size":5,
              "step_lr_gamma":0.1,"flow_epoch":None,
              "flow_from_end":None,"use_wandb":False,
              "ntype":"g","rate":-1,"sigma":-1,
              "sigma_min":-1,"sigma_max":-1,
-             "optim_name":"adam",
+             "optim_name":"adamw",
              "sgd_momentum":0.1,"sgd_dampening":0.1,
              "coswr_T0":-1,"coswr_Tmult":1,"coswr_eta_min":1e-9,
              "step_lr_multisteps":"30-50",
@@ -148,6 +148,9 @@ class LitModel(pl.LightningModule):
         if self.optim_name == "adam":
             optim = th.optim.Adam(self.parameters(),lr=self.lr_init,
                                   weight_decay=self.weight_decay)
+        elif self.optim_name == "adamw":
+            optim = th.optim.AdamW(self.parameters(),lr=self.lr_init,
+                                   weight_decay=self.weight_decay)
         elif self.optim_name == "sgd":
             optim = th.optim.SGD(self.parameters(),lr=self.lr_init,
                                  weight_decay=self.weight_decay,
@@ -287,6 +290,7 @@ class LitModel(pl.LightningModule):
         # -- denoise --
         noisy,clean = batch['noisy']/255.,batch['clean']/255.
         val_index = batch['index'].cpu().item()
+        T = noisy.shape[1]
 
         # -- flow --
         fflow = batch['fflow']
@@ -300,6 +304,7 @@ class LitModel(pl.LightningModule):
         gpu_mem.print_peak_gpu_stats(False,"val",reset=True)
         with th.no_grad():
             deno = self.forward(noisy,flows)
+        deno = deno.clamp(0,1)
         mem_res,mem_alloc = gpu_mem.print_peak_gpu_stats(False,"val",reset=True)
 
         # -- loss --
@@ -321,7 +326,21 @@ class LitModel(pl.LightningModule):
         self.log("val_index", val_index, on_step=False,
                  on_epoch=True,batch_size=1,sync_dist=True)
         self.log("global_step",self.global_step,on_step=False,
-                 on_epoch=True,batch_size=1)
+                 on_epoch=True,batch_size=1,sync_dist=True)
+
+        # -- channel info --
+        # for i in range(deno.shape[2]):
+        #     self.log("val_deno_ch_%d_mean" % i,deno[:,:,i].mean().item())
+        #     self.log("val_deno_ch_%d_min" % i,deno[:,:,i].min().item())
+        #     self.log("val_deno_ch_%d_max" % i,deno[:,:,i].max().item())
+
+        # -- image --
+        noisy = noisy.clamp(0,1)
+        # if not(self.logger is None):
+        #     self.logger.log_image(key="val_noisy_"+str(int(val_index)), 
+        #                           images=[noisy[0][t] for t in range(T)])
+        #     self.logger.log_image(key="val_deno_"+str(int(val_index)), 
+        #                           images=[deno[0][t] for t in range(T)])
         self.gen_loger.info("val_psnr: %2.2f" % val_psnr)
         self.gen_loger.info("val_ssim: %.3f" % val_ssim)
 
@@ -333,6 +352,7 @@ class LitModel(pl.LightningModule):
         # -- denoise --
         index = float(batch['index'][0].item())
         noisy,clean = batch['noisy']/255.,batch['clean']/255.
+        T = noisy.shape[1]
 
         # -- flow --
         fflow = batch['fflow']
@@ -361,6 +381,11 @@ class LitModel(pl.LightningModule):
         self.log("test_mem_alloc", mem_alloc,on_step=True,on_epoch=False,batch_size=1)
         self.log("global_step",self.global_step,on_step=True,
                  on_epoch=False,batch_size=1)
+        # if not(self.logger is None):
+        #     self.logger.log_image(key="te_noisy_"+str(int(index)), 
+        #                           images=[noisy[0][t].clamp(0,1) for t in range(T)])
+        #     self.logger.log_image(key="te_deno_"+str(int(index)), 
+                                  # images=[deno[0][t].clamp(0,1) for t in range(T)])
         self.gen_loger.info("te_psnr: %2.2f" % psnr)
         self.gen_loger.info("te_ssim: %.3f" % ssim)
 
