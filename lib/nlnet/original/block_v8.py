@@ -66,10 +66,12 @@ class BlockV8(nn.Module):
         bn = block.res.res_bn
         stg_depth = block.res.stg_depth
         stg_nheads = block.res.stg_nheads
+        stg_ngroups = block.res.stg_ngroups
         self.channel_attn_0 = ChannelAttention(edim)
         self.channel_attn_1 = ChannelAttention(edim)
         self.res = RSTBWithInputConv(edim, ksize, nres, dim=edim,
-                                     depth=stg_depth,num_heads=stg_nheads)
+                                     depth=stg_depth,num_heads=stg_nheads,
+                                     groups=stg_ngroups)
         self.drop_path = DropPath(dprate) if dprate > 0. else nn.Identity()
 
 

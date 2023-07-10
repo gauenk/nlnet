@@ -335,6 +335,30 @@ class ConvQKV(nn.Module):
         flops += conv2d_flops(self.to_v,H,W)
         return flops
 
+class RSTBInput(nn.Module):
+        # video deblurring/denoising
+    def __init__(self,edim,nonblind=False,depth=2,num_heads=6):
+        self.nonblind = nonblind
+        net = nn.Sequential(
+            Rearrange('n d c h w -> n c d h w'),
+            nn.Conv3d(4 if self.nonblind else 3, edim, (1, 3, 3),
+                      (1, 2, 2), (0, 1, 1)),
+            nn.LeakyReLU(negative_slope=0.1, inplace=True),
+            nn.Conv3d(edim, edim, (1, 3, 3), (1, 2, 2), (0, 1, 1)),
+            nn.LeakyReLU(negative_slope=0.1, inplace=True),
+            Rearrange('n c d h w -> n d c h w'),
+            RSTBWithInputConv(
+                in_channels=edim,
+                kernel_size=(1, 3, 3),
+                groups=inputconv_groups[0],
+                num_blocks=1,
+                dim=edim,depth=depth,
+                num_heads=num_heads,
+            ))
+
+    def forward(self,vid):
+        return self.net(vid)
+
 def conv2d_flops(conv,H,W):
 
     # -- unpack --

@@ -49,7 +49,8 @@ def get_blocks(cfg):
     econfig.init(cfg)
     pairs = {"search_menu_name":"full",
              "search_v0":"exact","search_v1":"refine",
-             "qk_frac":1.,"inner_mult":2,"nls_normalize_bwd":False}
+             "qk_frac":1.,"qkv_ngroups":1,
+             "inner_mult":2,"nls_normalize_bwd":False}
     cfg = econfig.extract_pairs(cfg,pairs)
     # -- finish args --
     if econfig.is_init: return
@@ -62,8 +63,8 @@ def get_blocks(cfg):
 
     # -- unpack attn name --
     # ...
-    attn_params = get_attn_params(depths,cfg.qk_frac,cfg.inner_mult)
-
+    attn_params = get_attn_params(depths,cfg.qk_frac,
+                                  cfg.qkv_ngroups,cfg.inner_mult)
 
     # -- unpack search name --
     # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
@@ -71,7 +72,6 @@ def get_blocks(cfg):
     v0,v1 = cfg.search_v0,cfg.search_v1
     normalize_bwd = cfg.nls_normalize_bwd
     search_params = search_menu(depths,search_menu_name,v0,v1,normalize_bwd)
-
 
     # -- unpack normz name --
     # ...
@@ -96,11 +96,12 @@ def get_blocks(cfg):
 
     return blocks
 
-def get_attn_params(depths,qk_fracs,inner_mults):
+def get_attn_params(depths,qk_fracs,qkv_ngroups,inner_mults):
 
     # -- init --
     params = edict()
     params.qk_frac = []
+    params.qkv_ngroups = []
     params.inner_mult = []
     # params.embed_dim = []
 
@@ -113,14 +114,20 @@ def get_attn_params(depths,qk_fracs,inner_mults):
     # -- downscale --
     for d,depths_i in enumerate(depths):
         params.qk_frac.extend(get_val(qk_fracs,d,depths_i))
+        params.qkv_ngroups.extend(get_val(qkv_ngroups,d,depths_i))
         params.inner_mult.extend(get_val(inner_mults,d,depths_i))
         # params.embed_dim.extend(get_val(embed_dims,d,depths_i))
 
     # -- upscale --
     for d,depths_i in reversed(list(enumerate(depths[:-1]))):
         params.qk_frac.extend(get_val(qk_fracs,d,depths_i))
+        params.qkv_ngroups.extend(get_val(qkv_ngroups,d,depths_i))
         params.inner_mult.extend(get_val(inner_mults,d,depths_i))
         # params.embed_dim.extend(get_val(embed_dims,d,depths_i))
+
+    # print(qkv_ngroups)
+    # print(params.qk_frac)
+    # print(params.qkv_ngroups)
 
     return params
 

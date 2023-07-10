@@ -25,7 +25,7 @@ from .misc import LayerNorm2d
 from .rstb import RSTBWithInputConv
 from .chnls_attn import ChannelAttention
 
-class BlockV9(nn.Module):
+class BlockV10(nn.Module):
 
     def __init__(self, btype, blocklist, block):
         super().__init__()
@@ -67,11 +67,11 @@ class BlockV9(nn.Module):
         stg_depth = block.res.stg_depth
         stg_nheads = block.res.stg_nheads
         # self.res = ResBlockList(nres, edim, ksize, bn)
-        self.channel_attn = ChannelAttention(edim)
         self.res = ResBlockList(nres, edim, ksize, bn)
+        self.channel_attn = ChannelAttention(edim)
         # self.res = RSTBWithInputConv(edim, ksize, nres, dim=edim,
         #                              depth=stg_depth,num_heads=stg_nheads)
-        self.drop_path = DropPath(dprate) if dprate > 0. else nn.Identity()
+        # self.drop_path = DropPath(dprate) if dprate > 0. else nn.Identity()
 
 
     def extra_repr(self) -> str:
@@ -100,9 +100,9 @@ class BlockV9(nn.Module):
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
         # vid = shortcut + self.drop_path(vid)
-        # vid = self.norm2(vid)
+        # vid = self.norm(vid)
         vid = self.res(vid)
-        vid = self.channel_attn(vid)
+        # vid = self.channel_attn(vid)
 
         return vid
 

@@ -120,7 +120,7 @@ def load_model(cfg):
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
     # -- fill blocks with menu --
-    fill_fields = {"attn":["qk_frac","inner_mult"],
+    fill_fields = {"attn":["qk_frac","qkv_ngroups","inner_mult"],
                    "search":["search_name","use_state_update",
                              "normalize_bwd"],
                    "normz":[],"agg":[],}
@@ -139,7 +139,7 @@ def load_model(cfg):
     # -- fill blocks with blocklists --
     dfill = {"attn":["nheads","embed_dim"],"search":["nheads"],
              "res":["nres_per_block","res_ksize","res_bn",
-                    "stg_depth","stg_nheads"]}
+                    "stg_depth","stg_nheads","stg_ngroups"]}
     fill_blocks(blocks,blocklists,dfill)
 
     # -- create down/up sample --
@@ -211,7 +211,7 @@ def blocklist_pairs():
     info = {"mlp_ratio":4.,"block_version":"v4",
             "embed_dim":None,"freeze":False,"block_mlp":"mlp","norm_layer":"LayerNorm",
             "num_res":3,"res_ksize":3,"nres_per_block":3,"res_bn":False,
-            "stg_depth":2,"stg_nheads":4,"up_method":"convT"}
+            "stg_depth":2,"stg_nheads":4,"stg_ngroups":1,"up_method":"convT"}
     training = {"drop_rate_mlp":0.,"drop_rate_path":0.1}
     pairs = info | training | defs
     return pairs
