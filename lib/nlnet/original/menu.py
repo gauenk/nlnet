@@ -50,7 +50,12 @@ def get_blocks(cfg):
     pairs = {"search_menu_name":"full",
              "search_v0":"exact","search_v1":"refine",
              "qk_frac":1.,"qkv_ngroups":1,
-             "inner_mult":2,"nls_normalize_bwd":False}
+             "inner_mult":2,"nls_normalize_bwd":False,
+             "attn_proj_version":"v1",
+             "attn_proj_ksize":"",
+             "attn_proj_stride":"",
+             "attn_proj_ngroups":"nheads",
+    }
     cfg = econfig.extract_pairs(cfg,pairs)
     # -- finish args --
     if econfig.is_init: return
@@ -64,7 +69,11 @@ def get_blocks(cfg):
     # -- unpack attn name --
     # ...
     attn_params = get_attn_params(depths,cfg.qk_frac,
-                                  cfg.qkv_ngroups,cfg.inner_mult)
+                                  cfg.qkv_ngroups,cfg.inner_mult,
+                                  cfg.attn_proj_version,
+                                  cfg.attn_proj_ksize,
+                                  cfg.attn_proj_stride,
+                                  cfg.attn_proj_ngroups)
 
     # -- unpack search name --
     # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
@@ -96,13 +105,19 @@ def get_blocks(cfg):
 
     return blocks
 
-def get_attn_params(depths,qk_fracs,qkv_ngroups,inner_mults):
+def get_attn_params(depths,qk_fracs,qkv_ngroups,inner_mults,
+                    attn_proj_versions,attn_proj_ksizes,
+                    attn_proj_strides,attn_proj_ngroups):
 
     # -- init --
     params = edict()
     params.qk_frac = []
     params.qkv_ngroups = []
     params.inner_mult = []
+    params.attn_proj_version = []
+    params.attn_proj_ksize = []
+    params.attn_proj_stride = []
+    params.attn_proj_ngroup = []
     # params.embed_dim = []
 
     # -- helper --
@@ -116,6 +131,10 @@ def get_attn_params(depths,qk_fracs,qkv_ngroups,inner_mults):
         params.qk_frac.extend(get_val(qk_fracs,d,depths_i))
         params.qkv_ngroups.extend(get_val(qkv_ngroups,d,depths_i))
         params.inner_mult.extend(get_val(inner_mults,d,depths_i))
+        params.attn_proj_version.extend(get_val(attn_proj_versions,d,depths_i))
+        params.attn_proj_ksize.extend(get_val(attn_proj_ksizes,d,depths_i))
+        params.attn_proj_stride.extend(get_val(attn_proj_strides,d,depths_i))
+        params.attn_proj_ngroup.extend(get_val(attn_proj_ngroups,d,depths_i))
         # params.embed_dim.extend(get_val(embed_dims,d,depths_i))
 
     # -- upscale --
@@ -123,6 +142,10 @@ def get_attn_params(depths,qk_fracs,qkv_ngroups,inner_mults):
         params.qk_frac.extend(get_val(qk_fracs,d,depths_i))
         params.qkv_ngroups.extend(get_val(qkv_ngroups,d,depths_i))
         params.inner_mult.extend(get_val(inner_mults,d,depths_i))
+        params.attn_proj_version.extend(get_val(attn_proj_versions,d,depths_i))
+        params.attn_proj_ksize.extend(get_val(attn_proj_ksizes,d,depths_i))
+        params.attn_proj_stride.extend(get_val(attn_proj_strides,d,depths_i))
+        params.attn_proj_ngroup.extend(get_val(attn_proj_ngroups,d,depths_i))
         # params.embed_dim.extend(get_val(embed_dims,d,depths_i))
 
     # print(qkv_ngroups)

@@ -8,6 +8,7 @@ from .block_v7 import BlockV7
 from .block_v8 import BlockV8
 from .block_v9 import BlockV9
 from .block_v10 import BlockV10
+from .block_v11 import BlockV11
 
 def get_block_version(block_version):
     if block_version == "v1":
@@ -30,5 +31,7 @@ def get_block_version(block_version):
         return BlockV9
     elif block_version == "v10":
         return BlockV10
+    elif block_version == "v11":
+        return BlockV11
     else:
         raise ValueError("Uknown block type [%s]" % block_version)
