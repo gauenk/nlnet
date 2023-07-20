@@ -93,14 +93,19 @@ class BlockV11(nn.Module):
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
         vid = self.norm1(vid)
+        # print("[in] vid.shape: ",vid.shape)
         vid = self.attn(vid, flows=flows, state=state)
+        # print("[out] vid.shape: ",vid.shape)
+        # print("[attn] delta: ",th.mean((shortcut-vid)**2).item())
         vid = self.channel_attn_0(vid)
+        # print("[chnl_attn] delta: ",th.mean((shortcut-vid)**2).item())
 
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         #   Non-Linearity & Residual
         # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
         vid = shortcut + self.drop_path(vid)
+        # print("[shortcut] delta: ",th.mean((shortcut-vid)**2).item())
         vid = self.norm2(vid)
         vid = self.res(vid)
         vid = self.channel_attn_1(vid)

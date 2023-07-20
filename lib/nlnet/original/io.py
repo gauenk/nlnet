@@ -120,7 +120,8 @@ def load_model(cfg):
     # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
     # -- fill blocks with menu --
-    fill_fields = {"attn":["qk_frac","qkv_ngroups","inner_mult",
+    fill_fields = {"attn":["qk_frac","qkv_ngroups",
+                           "inner_mult",
                            "attn_proj_version",
                            "attn_proj_ksize",
                            "attn_proj_stride",
