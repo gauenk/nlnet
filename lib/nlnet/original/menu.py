@@ -95,7 +95,9 @@ def get_blocks(cfg):
 
 
     # -- unpack normz name --
-    # ...
+    names = ["k_agg"]
+    lists = [cfg[name] for name in names]
+    normz_params = unpack_params(depths,lists,names)
 
     # -- unpack agg name --
     # ...
@@ -106,7 +108,7 @@ def get_blocks(cfg):
 
     # -- expand out blocks --
     blocks = []
-    params = [attn_params,search_params]
+    params = [attn_params,search_params,normz_params]
     # params = [search_params]
     for l in range(nblocks):
         block_l = edict()
