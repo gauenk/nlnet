@@ -150,7 +150,6 @@ def load_model(cfg):
     # -- create down/up sample --
     scales = create_scales(blocklists)
 
-    print(blocks)
     # -- init model --
     model = SrNet(cfgs.arch,cfgs.search,blocklists,scales,blocks)
     # model.spynet.eval()
