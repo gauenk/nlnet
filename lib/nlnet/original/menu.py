@@ -49,6 +49,7 @@ def get_blocks(cfg):
     econfig.init(cfg)
     pairs = {"search_menu_name":"full",
              "search_v0":"exact","search_v1":"refine",
+             "k_agg":10,
              "qk_frac":1.,"qkv_ngroups":1,
              "inner_mult":2,"nls_normalize_bwd":False,
              "attn_proj_version":"v1",
@@ -68,12 +69,17 @@ def get_blocks(cfg):
 
     # -- unpack attn name --
     # ...
-    attn_params = get_attn_params(depths,cfg.qk_frac,
-                                  cfg.qkv_ngroups,cfg.inner_mult,
-                                  cfg.attn_proj_version,
-                                  cfg.attn_proj_ksize,
-                                  cfg.attn_proj_stride,
-                                  cfg.attn_proj_ngroups)
+    names = ["qk_frac","qkv_ngroups","inner_mult",
+             "attn_proj_version","attn_proj_ksize",
+             "attn_proj_stride","attn_proj_ngroups"]
+    lists = [cfg[name] for name in names]
+    attn_params = unpack_params(depths,lists,names)
+    # attn_params = get_attn_params(depths,cfg.qk_frac,
+    #                               cfg.qkv_ngroups,cfg.inner_mult,
+    #                               cfg.attn_proj_version,
+    #                               cfg.attn_proj_ksize,
+    #                               cfg.attn_proj_stride,
+    #                               cfg.attn_proj_ngroups)
 
     # -- unpack search name --
     # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
@@ -81,6 +87,12 @@ def get_blocks(cfg):
     v0,v1 = cfg.search_v0,cfg.search_v1
     normalize_bwd = cfg.nls_normalize_bwd
     search_params = search_menu(depths,search_menu_name,v0,v1,normalize_bwd)
+    names = ["k_agg"]
+    lists = [cfg[name] for name in names]
+    search_params_u = unpack_params(depths,lists,names)
+    for key in search_params_u:
+        search_params[key] = search_params_u[key]
+
 
     # -- unpack normz name --
     # ...
@@ -104,6 +116,32 @@ def get_blocks(cfg):
         blocks.append(block_l)
 
     return blocks
+
+def unpack_params(depths,lists,names):
+
+    # -- init --
+    params = edict()
+    for name in names:
+        params[name] = []
+    
+
+    # -- helper --
+    def get_val(val,d,depths_i):
+        if isinstance(val,list): val_d = val[d]
+        else: val_d = val
+        return [val_d,]*depths_i
+
+    # -- downscale --
+    for d,depths_i in enumerate(depths):
+        for name,alist in zip(names,lists):
+            params[name].extend(get_val(alist,d,depths_i))
+
+    # -- upscale --
+    for d,depths_i in reversed(list(enumerate(depths[:-1]))):
+        for name,alist in zip(names,lists):
+            params[name].extend(get_val(alist,d,depths_i))
+
+    return params
 
 def get_attn_params(depths,qk_fracs,qkv_ngroups,inner_mults,
                     attn_proj_versions,attn_proj_ksizes,

@@ -125,9 +125,9 @@ def load_model(cfg):
                            "attn_proj_version",
                            "attn_proj_ksize",
                            "attn_proj_stride",
-                           "attn_proj_ngroup"],
+                           "attn_proj_ngroups"],
                    "search":["search_name","use_state_update",
-                             "normalize_bwd"],
+                             "normalize_bwd","k_agg"],
                    "normz":[],"agg":[],}
     fields = ["attn","search","normz","agg"]
     menu_blocks = menu.get_blocks(cfg)
@@ -150,6 +150,7 @@ def load_model(cfg):
     # -- create down/up sample --
     scales = create_scales(blocklists)
 
+    print(blocks)
     # -- init model --
     model = SrNet(cfgs.arch,cfgs.search,blocklists,scales,blocks)
     # model.spynet.eval()
