@@ -226,7 +226,7 @@ def blocklist_pairs():
 
 def arch_pairs():
     defs = shared_defaults()
-    pairs = {"in_chans":3,"dd_in":3,
+    pairs = {"in_chans":3,"dd_in":4,
              "dowsample":"Downsample", "upsample":"Upsample",
              "input_proj_depth":1,"input_norm_layer":None,
              "output_proj_depth":1,"drop_rate_pos":0.,

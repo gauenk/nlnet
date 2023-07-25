@@ -218,6 +218,7 @@ class LitModel(pl.LightningModule):
 
         # -- update flow --
         self.update_flow()
+        # print(batch['noisy'][:,0,-1,0,0],batch['sigma'])
 
         # -- each sample in batch --
         loss = 0 # init @ zero
@@ -269,6 +270,9 @@ class LitModel(pl.LightningModule):
         fflow = batch['fflow'][start:stop]
         bflow = batch['bflow'][start:stop]
 
+        # -- add 4-th chnl --
+        noisy = self.ensure_4chnls(noisy,batch)
+
         # -- make flow --
         if fflow.shape[-2:] == noisy.shape[-2:]:
             flows = edict({"fflow":fflow,"bflow":bflow})
@@ -282,6 +286,18 @@ class LitModel(pl.LightningModule):
         loss = th.mean((clean - deno)**2)
         return deno.detach(),clean,loss
 
+    def ensure_4chnls(self,noisy,batch):
+        if noisy.shape[-3] == 4: return noisy
+        sigmas = []
+        B = noisy.shape[0]
+        t,c,h,w = noisy[0].shape
+        for b in range(B):
+            sigma_b = batch['sigma'][b]/255.
+            noise_b = th.ones(t,1,h,w,device=sigma_b.device) * sigma_b
+            sigmas.append(noise_b)
+        sigmas = th.stack(sigmas)
+        return th.cat([noisy,sigmas],2)
+
     def validation_step(self, batch, batch_idx):
 
         # -- sample noise from simulator --
@@ -291,6 +307,10 @@ class LitModel(pl.LightningModule):
         noisy,clean = batch['noisy']/255.,batch['clean']/255.
         val_index = batch['index'].cpu().item()
         T = noisy.shape[1]
+
+        # -- add 4-th chnl --
+        noisy = self.ensure_4chnls(noisy,batch)
+        # print("val: ",noisy[:,0,-1,0,0],batch['sigma'])
 
         # -- flow --
         fflow = batch['fflow']
@@ -353,6 +373,11 @@ class LitModel(pl.LightningModule):
         index = float(batch['index'][0].item())
         noisy,clean = batch['noisy']/255.,batch['clean']/255.
         T = noisy.shape[1]
+
+
+        # -- add 4-th chnl --
+        noisy = self.ensure_4chnls(noisy,batch)
+        # print("te: ",noisy[:,0,-1,0,0],batch['sigma'])
 
         # -- flow --
         fflow = batch['fflow']
