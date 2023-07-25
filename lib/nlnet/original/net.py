@@ -61,6 +61,7 @@ class SrNet(nn.Module):
         # -- input/output --
         nhead0 = blocklists[0].nheads
         embed_dim0 = blocklists[0].embed_dim
+        out_chnls = 3
         self.input_proj = InputProjSeq(depth=arch_cfg.input_proj_depth,
                                        in_channel=arch_cfg.dd_in,
                                        out_channel=embed_dim0*nhead0,
@@ -68,7 +69,7 @@ class SrNet(nn.Module):
                                        act_layer=nn.LeakyReLU,
                                        norm_layer=arch_cfg.input_norm_layer)
         self.output_proj = OutputProj(in_channel=2*embed_dim0*nhead0,
-                                      out_channel=arch_cfg.in_chans,
+                                      out_channel=out_chnls,
                                       kernel_size=3,stride=1)
 
         # -- init --
@@ -165,6 +166,7 @@ class SrNet(nn.Module):
 
         # -- unpack --
         b,t,c,h,w = vid.shape
+        # print("vid.shape: ",vid.shape)
 
         # -- run flows --
         # if flows is None:
