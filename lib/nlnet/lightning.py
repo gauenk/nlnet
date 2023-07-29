@@ -89,7 +89,8 @@ def lit_pairs():
              "sgd_momentum":0.1,"sgd_dampening":0.1,
              "coswr_T0":-1,"coswr_Tmult":1,"coswr_eta_min":1e-9,
              "step_lr_multisteps":"30-50",
-             "spynet_global_step":-1,"limit_train_batches":-1}
+             "spynet_global_step":-1,"limit_train_batches":-1,
+             "dd_in":3}
     return pairs
 
 def sim_pairs():
@@ -124,6 +125,7 @@ class LitModel(pl.LightningModule):
         if flows is None:
             flows = flow.orun(vid,self.flow,ftype=self.flow_method)
         deno = self.net(vid,flows=flows)
+        print("vid.shape: ",vid.shape)
         return deno
 
     def sample_noisy(self,batch):
@@ -271,7 +273,7 @@ class LitModel(pl.LightningModule):
         bflow = batch['bflow'][start:stop]
 
         # -- add 4-th chnl --
-        noisy = self.ensure_4chnls(noisy,batch)
+        noisy = self.ensure_chnls(noisy,batch)
 
         # -- make flow --
         if fflow.shape[-2:] == noisy.shape[-2:]:
@@ -286,11 +288,14 @@ class LitModel(pl.LightningModule):
         loss = th.mean((clean - deno)**2)
         return deno.detach(),clean,loss
 
-    def ensure_4chnls(self,noisy,batch):
-        if noisy.shape[-3] == 4: return noisy
+    def ensure_chnls(self,noisy,batch):
+        print(batch['sigma'])
+        if noisy.shape[-3] == self.dd_in:
+            return noisy
+        elif noisy.shape[-3] == 4 and self.dd_in == 3:
+            return noisy[...,:3,:,:].contiguous()
         sigmas = []
-        B = noisy.shape[0]
-        t,c,h,w = noisy[0].shape
+        B,t,c,h,w = noisy.shape
         for b in range(B):
             sigma_b = batch['sigma'][b]/255.
             noise_b = th.ones(t,1,h,w,device=sigma_b.device) * sigma_b
@@ -309,7 +314,7 @@ class LitModel(pl.LightningModule):
         T = noisy.shape[1]
 
         # -- add 4-th chnl --
-        noisy = self.ensure_4chnls(noisy,batch)
+        noisy = self.ensure_chnls(noisy,batch)
         # print("val: ",noisy[:,0,-1,0,0],batch['sigma'])
 
         # -- flow --
@@ -376,7 +381,7 @@ class LitModel(pl.LightningModule):
 
 
         # -- add 4-th chnl --
-        noisy = self.ensure_4chnls(noisy,batch)
+        noisy = self.ensure_chnls(noisy,batch)
         # print("te: ",noisy[:,0,-1,0,0],batch['sigma'])
 
         # -- flow --
