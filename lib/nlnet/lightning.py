@@ -125,7 +125,6 @@ class LitModel(pl.LightningModule):
         if flows is None:
             flows = flow.orun(vid,self.flow,ftype=self.flow_method)
         deno = self.net(vid,flows=flows)
-        print("vid.shape: ",vid.shape)
         return deno
 
     def sample_noisy(self,batch):
@@ -289,7 +288,6 @@ class LitModel(pl.LightningModule):
         return deno.detach(),clean,loss
 
     def ensure_chnls(self,noisy,batch):
-        print(batch['sigma'])
         if noisy.shape[-3] == self.dd_in:
             return noisy
         elif noisy.shape[-3] == 4 and self.dd_in == 3:
