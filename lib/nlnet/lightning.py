@@ -14,6 +14,9 @@ from einops import rearrange,repeat
 from pathlib import Path
 from easydict import EasyDict as edict
 
+# -- vision --
+import torchvision.transforms as tvt
+
 # -- data --
 import data_hub
 
@@ -89,8 +92,9 @@ def lit_pairs():
              "sgd_momentum":0.1,"sgd_dampening":0.1,
              "coswr_T0":-1,"coswr_Tmult":1,"coswr_eta_min":1e-9,
              "step_lr_multisteps":"30-50",
-             "spynet_global_step":-1,"limit_train_batches":-1,
-             "dd_in":3}
+             "spynet_global_step":-1,"limit_train_batches":-1,"dd_in":3,
+             "fill_loss":False,"fill_loss_weight":1.,"fill_loss_n":10,
+             "fill_loss_scale_min":.01,"fill_loss_scale_max":0.05}
     return pairs
 
 def sim_pairs():
@@ -223,15 +227,16 @@ class LitModel(pl.LightningModule):
 
         # -- each sample in batch --
         loss = 0 # init @ zero
-        denos,cleans = [],[]
+        denos,fills,cleans = [],[],[]
         ntotal = len(batch['noisy'])
         nbatch = ntotal
         nbatches = (ntotal-1)//nbatch+1
         for i in range(nbatches):
             start,stop = i*nbatch,min((i+1)*nbatch,ntotal)
-            deno_i,clean_i,loss_i = self.training_step_i(batch, start, stop)
+            deno_i,fill_i,clean_i,loss_i = self.training_step_i(batch, start, stop)
             loss += loss_i
             denos.append(deno_i)
+            fills.append(fill_i)
             cleans.append(clean_i)
         loss = loss / nbatches
 
@@ -244,15 +249,21 @@ class LitModel(pl.LightningModule):
         # -- append --
         denos = th.cat(denos)
         cleans = th.cat(cleans)
+        fills = th.cat(fills) if self.fill_loss else None
 
         # -- log --
-        val_psnr = np.mean(compute_psnrs(denos,cleans,div=1.)).item()
+        get_psnr = lambda x,y: np.mean(compute_psnrs(x,y,div=1.)).item()
+        val_psnr = get_psnr(denos,cleans)
+        fill_psnr = get_psnr(fills,cleans) if self.fill_loss else -1
         lr = self.optimizers()._optimizer.param_groups[-1]['lr']
         # val_ssim = np.mean(compute_ssims(denos,cleans,div=1.)).item() # too slow.
         self.log("train_loss", loss.item(), on_step=True,
                  on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         self.log("train_psnr", val_psnr, on_step=True,
                  on_epoch=False, batch_size=self.batch_size, sync_dist=False)
+        if self.fill_loss:
+            self.log("fill_psnr", fill_psnr, on_step=True,
+                     on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         self.log("lr", lr, on_step=True,
                  on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         self.log("global_step", self.global_step, on_step=True,
@@ -262,6 +273,32 @@ class LitModel(pl.LightningModule):
         # self.gen_loger.info("train_psnr: %2.2f" % val_psnr)
 
         return loss
+
+    def training_step_fill(self, clean, flows):
+
+        # -- unpack batch
+        tofill = clean.clone()
+        T = tofill.shape[1]
+        fill_loss_scale_min = self.fill_loss_scale_min
+        fill_loss_scale_max = self.fill_loss_scale_max
+        fill_loss_n = self.fill_loss_n
+
+        # -- erase randomly --
+        eraser = tvt.RandomErasing(p=1.,
+                                   scale=(fill_loss_scale_min, fill_loss_scale_max),
+                                   ratio=(0.3, 3.3), value=0, inplace=False)
+        for t in range(T):
+            for n in range(fill_loss_n):
+                tofill[:,t] = eraser(tofill[:,t])
+        zeros = th.zeros_like(tofill[:,:,:1,:,:])
+        tofill = th.cat([tofill,zeros],-3)
+
+        # -- foward --
+        fill = self.forward(tofill,flows)
+
+        # -- report loss --
+        loss = th.mean((clean - fill)**2)
+        return fill.detach(),loss
 
     def training_step_i(self, batch, start, stop):
 
@@ -280,12 +317,19 @@ class LitModel(pl.LightningModule):
         else:
             flows = None
 
-        # -- foward --
+        # -- forward --
         deno = self.forward(noisy,flows)
 
         # -- report loss --
         loss = th.mean((clean - deno)**2)
-        return deno.detach(),clean,loss
+
+        # -- forward fill --
+        fill_f = None
+        if self.fill_loss:
+            fill_f,loss_f = self.training_step_fill(clean,flows)
+            loss += self.fill_loss_weight * loss_f
+
+        return deno.detach(),fill_f,clean,loss
 
     def ensure_chnls(self,noisy,batch):
         if noisy.shape[-3] == self.dd_in:

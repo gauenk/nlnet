@@ -147,14 +147,16 @@ def load_model(cfg):
     # -- fill blocks with blocklists --
     dfill = {"attn":["nheads","embed_dim"],"search":["nheads"],
              "res":["nres_per_block","res_ksize","res_bn",
-                    "stg_depth","stg_nheads","stg_ngroups"]}
+                    "stg_depth","stg_nheads",
+                    "stg_ngroups","stg_nblocks"]}
     fill_blocks(blocks,blocklists,dfill)
+    # print(len(blocks),len(blocks[0]))
 
     # -- create down/up sample --
-    scales = create_scales(blocklists)
+    # scales = create_scales(blocklists)
 
     # -- init model --
-    model = SrNet(cfgs.arch,cfgs.search,blocklists,scales,blocks)
+    model = SrNet(cfgs.arch,cfgs.search,blocklists,blocks)
     # model.spynet.eval()
 
     # -- load model --
@@ -189,8 +191,8 @@ def update_archs(arch,search_menu_name,ndepth):
     #     arch.share_encdec = True#[True,]*len(depths)
 
 def shared_defaults():
-    pairs = {"arch_nheads":[1,1,1],
-             "arch_depth":[1,1,1]}
+    pairs = {"arch_nheads":[1],
+             "arch_depth":[1]}
              # "arch_nheads":[1,1,1],
              # "arch_depth":[1,1,1]}
     # cfg = econfig.extract_pairs(_cfg,pairs,new=False)
@@ -219,8 +221,9 @@ def blocklist_pairs():
     info = {"mlp_ratio":4.,"block_version":"v4","append_noise":False,
             "embed_dim":None,"freeze":False,"block_mlp":"mlp","norm_layer":"LayerNorm",
             "num_res":3,"res_ksize":3,"nres_per_block":3,"res_bn":False,
-            "stg_depth":2,"stg_nheads":4,"stg_ngroups":1,"up_method":"convT"}
-    training = {"drop_rate_mlp":0.,"drop_rate_path":0.1}
+            "stg_depth":2,"stg_nheads":4,"stg_ngroups":1,"stg_nblocks":1,
+            "up_method":"convT"}
+    training = {"drop_rate_mlp":0.,"drop_rate_path":0.1,"blist_cat":True}
     pairs = info | training | defs
     return pairs
 

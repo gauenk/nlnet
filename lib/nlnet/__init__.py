@@ -9,6 +9,7 @@ from .original import extract_config as extract_model_config
 
 # -- next gen --
 from . import version2
+from . import version3
 
 # -- hooks --
 from . import hooks
@@ -36,5 +37,7 @@ def load_model(cfg):
     mtype = optional(cfg,'model_type','nlnet')
     if mtype in ["nlnet","original"]:
         return original.load_model(cfg)
+    elif mtype in ["nlnet3"]:
+        return version3.load_model(cfg)
     else:
         raise ValueError(f"Uknown model type [{mtype}]")
