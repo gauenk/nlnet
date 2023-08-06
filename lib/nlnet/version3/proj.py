@@ -375,29 +375,32 @@ def conv2d_flops(conv,H,W):
     flop *= ((in_C//groups) * (out_C//groups) * groups)
     return flop
 
-def get_input_proj_rvrt(edim0):
-    feat_extract = nn.Sequential(Rearrange('n d c h w -> n c d h w'),
-                                 nn.Conv3d(4, edim0, (1, 3, 3),(1, 2, 2), (0, 1, 1)),
-                                 nn.LeakyReLU(negative_slope=0.1, inplace=True),
-                                 nn.Conv3d(edim0, edim0, (1, 3, 3), (1, 2, 2), (0, 1, 1)),
-                                 nn.LeakyReLU(negative_slope=0.1, inplace=True),
-                                 Rearrange('n c d h w -> n d c h w'),
-                                 RSTBWithInputConv(
-                                     edim0,(1, 3, 3),
-                                     # in_channels=edim0,
-                                     # kernel_size=(1, 3, 3),
-                                     depth=2,
-                                     groups=1,
-                                     num_blocks=1,
-                                     dim=edim0,
-                                     num_heads=6,
-                                     window_size=[1, 8, 8],
-                                     mlp_ratio=2,
-                                     # qkv_bias=qkv_bias,
-                                     # qk_scale=qk_scale,
-                                     # norm_layer=norm_layer,
-                                 )
-    )
+def get_input_proj_rvrt(edim0,scale=4):
+
+    # -- scale == 2 --
+    m = [Rearrange('n d c h w -> n c d h w'),
+         nn.Conv3d(4, edim0, (1, 3, 3),(1, 2, 2), (0, 1, 1)),
+         nn.LeakyReLU(negative_slope=0.1, inplace=True)]
+    if scale == 4:
+        m.append(nn.Conv3d(edim0, edim0, (1, 3, 3), (1, 2, 2), (0, 1, 1)))
+        m.append(nn.LeakyReLU(negative_slope=0.1, inplace=True))
+    m.append(Rearrange('n c d h w -> n d c h w'))
+    m.append(RSTBWithInputConv(
+        edim0,(1, 3, 3),
+        # in_channels=edim0,
+        # kernel_size=(1, 3, 3),
+        depth=2,
+        groups=1,
+        num_blocks=1,
+        dim=edim0,
+        num_heads=6,
+        window_size=[1, 8, 8],
+        mlp_ratio=2,
+        # qkv_bias=qkv_bias,
+        # qk_scale=qk_scale,
+        # norm_layer=norm_layer
+        ))
+    feat_extract = nn.Sequential(*m)
     return feat_extract
 
 # def calculate_conv2d_flops(input_size: list, output_size: list, kernel_size: list, groups: int, bias: bool = False):

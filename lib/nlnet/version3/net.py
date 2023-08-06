@@ -67,7 +67,7 @@ class SrNet(nn.Module):
         edim0 = embed_dim0*nhead0
         # edim0 = embed_dim0
         out_chnls = 3
-        self.input_proj = get_input_proj_rvrt(edim0)
+        self.input_proj = get_input_proj_rvrt(edim0,arch_cfg.down_scale)
         # self.input_proj = InputProjSeq(depth=arch_cfg.input_proj_depth,
         #                                in_channel=3,#arch_cfg.dd_in,
         #                                out_channel=edim0,
@@ -95,10 +95,9 @@ class SrNet(nn.Module):
         self.conv_before_upsampler = nn.Sequential(
             nn.Conv3d(in_ftrs,num_feat,kernel_size=(1, 1, 1), padding=(0, 0, 0)),
             nn.LeakyReLU(negative_slope=0.1, inplace=True))
-        self.upsampler = UpsampleRvrt(4, num_feat)
-        self.conv_last = nn.Conv3d(num_feat,
-                                   out_channel, kernel_size=(1, 3, 3),
-                                   padding=(0, 1, 1))
+        self.upsampler = UpsampleRvrt(arch_cfg.down_scale, num_feat)
+        self.conv_last = nn.Conv3d(num_feat, out_channel,
+                                   kernel_size=(1, 3, 3), padding=(0, 1, 1))
 
         # -- main layers --
         self.block_layer = BlockList("enc",blocklists[0],blocks)

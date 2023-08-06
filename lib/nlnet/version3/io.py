@@ -220,7 +220,8 @@ def blocklist_pairs():
     defs = shared_defaults()
     info = {"mlp_ratio":4.,"block_version":"v4","append_noise":False,
             "embed_dim":None,"freeze":False,"block_mlp":"mlp","norm_layer":"LayerNorm",
-            "num_res":3,"res_ksize":3,"nres_per_block":3,"res_bn":False,
+            "num_res_in":1,"num_res_out":1,"res_ksize":3,
+            "nres_per_block":3,"res_bn":False,
             "stg_depth":2,"stg_nheads":4,"stg_ngroups":1,"stg_nblocks":1,
             "up_method":"convT"}
     training = {"drop_rate_mlp":0.,"drop_rate_path":0.1,"blist_cat":True}
@@ -234,6 +235,7 @@ def arch_pairs():
              "input_proj_depth":1,"input_norm_layer":None,
              "output_proj_depth":1,"drop_rate_pos":0.,
              "attn_timer":False,"use_spynet":True,
+             "down_scale":4,
              "spynet_path":"./weights/spynet/spynet_sintel_final-3d2a1287.pth",
     }
     return pairs | defs

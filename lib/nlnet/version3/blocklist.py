@@ -36,13 +36,13 @@ class BlockList(nn.Module):
         # nls_stack = blocklist.use_nls_stack
         self.blist_cat = blocklist.blist_cat
         mult = 2 if btype == "dec" else 1
-        nres = blocklist.num_res
+        nres_in = blocklist.num_res_in
+        nres_out = blocklist.num_res_out
         n_feats = blocklist.embed_dim * blocklist.nheads * mult
         # n_feats = blocklist.embed_dim * mult
         ksize = blocklist.res_ksize
         append_noise = blocklist.append_noise and blocklist.enc_dec == "enc"
-        self.nres = nres
-        self.res = ResBlockList(blocklist.num_res,n_feats,ksize,
+        self.res = ResBlockList(blocklist.num_res_in,n_feats,ksize,
                                 blocklist.res_bn,append_noise)
         nblocks = blocklist.depth+1
 
@@ -63,13 +63,13 @@ class BlockList(nn.Module):
         # print(n_feats,nblocks,edim)
         dprate = blocklist.drop_rate_path
         ksize = blocks[-1].res.res_ksize
-        nres = blocks[-1].res.nres_per_block
+        # nres = blocks[-1].res.nres_per_block
         bn = blocks[-1].res.res_bn
         stg_nblocks = blocks[-1].res.stg_nblocks
         stg_depth = blocks[-1].res.stg_depth
         stg_nheads = blocks[-1].res.stg_nheads
         stg_ngroups = blocks[-1].res.stg_ngroups
-        self.out = RSTBWithInputConv(edim, ksize, nres, dim=edim,
+        self.out = RSTBWithInputConv(edim, ksize, nres_out, dim=edim,
                                      depth=stg_depth,num_heads=stg_nheads,
                                      groups=stg_ngroups)
         self.conv_proj = nn.Sequential(
