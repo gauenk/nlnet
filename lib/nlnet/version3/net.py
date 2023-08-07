@@ -92,6 +92,7 @@ class SrNet(nn.Module):
         in_ftrs = embed_dim0*nhead0*block_mult
         num_feat = 64
         out_channel = 3
+        # print("in_ftrs,num_feat: ",in_ftrs,num_feat)
         self.conv_before_upsampler = nn.Sequential(
             nn.Conv3d(in_ftrs,num_feat,kernel_size=(1, 1, 1), padding=(0, 0, 0)),
             nn.LeakyReLU(negative_slope=0.1, inplace=True))

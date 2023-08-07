@@ -25,7 +25,7 @@ from .misc import LayerNorm2d
 from .rstb import RSTBWithInputConv
 from .chnls_attn import ChannelAttention
 
-class BlockV14(nn.Module):
+class BlockV15(nn.Module):
 
     def __init__(self, btype, blocklist, block):
         super().__init__()
@@ -86,7 +86,7 @@ class BlockV14(nn.Module):
         #                              depth=stg_depth,num_heads=stg_nheads,
         #                              groups=stg_ngroups)
         # print("v14: ",edim, ksize, nres, edim,stg_depth,stg_nheads,stg_ngroups)
-        self.res = RSTBWithInputConv(edim, ksize, nres, dim=edim,
+        self.res = RSTBWithInputConv(edim*2, ksize, nres, dim=edim,
                                      depth=stg_depth,num_heads=stg_nheads,
                                      groups=stg_ngroups)
         self.drop_path = DropPath(dprate) if dprate > 0. else nn.Identity()
@@ -113,7 +113,7 @@ class BlockV14(nn.Module):
         # vid = self.norm1(vid)
         # vid = self.proj_up(vid.transpose(1,2)).transpose(1,2)
         # print("[in] vid.shape: ",vid.shape)
-        vid = self.attn(vid, flows=flows, state=state)
+        attn_vid = self.attn(vid, flows=flows, state=state)
         # print("[out] vid.shape: ",vid.shape)
         # print("[attn] delta: ",th.mean((shortcut-vid)**2).item())
         # vid = self.channel_attn_0(vid)
@@ -127,7 +127,7 @@ class BlockV14(nn.Module):
         # vid = shortcut + self.drop_path(vid)
         # print("[shortcut] delta: ",th.mean((shortcut-vid)**2).item())
         # vid = self.norm2(vid)
-        vid = self.res(vid)
+        vid = attn_vid + self.res(th.cat([vid,attn_vid],-3))
         # vid = self.channel_attn_1(vid)
 
         return vid

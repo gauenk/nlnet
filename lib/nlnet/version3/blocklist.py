@@ -59,7 +59,8 @@ class BlockList(nn.Module):
 
         # -- output --
         nblock_mult = nblocks if self.blist_cat else 1
-        edim = n_feats * nblock_mult
+        edim = n_feats
+        edim_nblocks = n_feats * nblock_mult
         # print(n_feats,nblocks,edim)
         dprate = blocklist.drop_rate_path
         ksize = blocks[-1].res.res_ksize
@@ -69,7 +70,7 @@ class BlockList(nn.Module):
         stg_depth = blocks[-1].res.stg_depth
         stg_nheads = blocks[-1].res.stg_nheads
         stg_ngroups = blocks[-1].res.stg_ngroups
-        self.out = RSTBWithInputConv(edim, ksize, nres_out, dim=edim,
+        self.out = RSTBWithInputConv(edim_nblocks, ksize, nres_out, dim=edim,
                                      depth=stg_depth,num_heads=stg_nheads,
                                      groups=stg_ngroups)
         self.conv_proj = nn.Sequential(
@@ -94,6 +95,7 @@ class BlockList(nn.Module):
             if self.blist_cat: ftrs.append(vid)
         if self.blist_cat: ftrs = th.cat(ftrs,-3)
         else: ftrs = vid
+        # print("ftrs.shape: ",ftrs.shape)
         vid = self.out(ftrs)
         vid = self.conv_proj(vid.transpose(1,2)).transpose(1,2)
 

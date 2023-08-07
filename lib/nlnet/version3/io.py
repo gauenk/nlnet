@@ -145,7 +145,7 @@ def load_model(cfg):
     blocklists = init_blocklists(cfgs.blocklist,cfg.nblocklists)
 
     # -- fill blocks with blocklists --
-    dfill = {"attn":["nheads","embed_dim"],"search":["nheads"],
+    dfill = {"attn":["nheads","embed_dim","attn_type"],"search":["nheads"],
              "res":["nres_per_block","res_ksize","res_bn",
                     "stg_depth","stg_nheads",
                     "stg_ngroups","stg_nblocks"]}
@@ -221,7 +221,7 @@ def blocklist_pairs():
     info = {"mlp_ratio":4.,"block_version":"v4","append_noise":False,
             "embed_dim":None,"freeze":False,"block_mlp":"mlp","norm_layer":"LayerNorm",
             "num_res_in":1,"num_res_out":1,"res_ksize":3,
-            "nres_per_block":3,"res_bn":False,
+            "nres_per_block":3,"res_bn":False,"attn_type":"stack",
             "stg_depth":2,"stg_nheads":4,"stg_ngroups":1,"stg_nblocks":1,
             "up_method":"convT"}
     training = {"drop_rate_mlp":0.,"drop_rate_path":0.1,"blist_cat":True}

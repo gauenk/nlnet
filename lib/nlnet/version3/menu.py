@@ -217,7 +217,7 @@ def get_use_state_updates(search_names):
     return use_state_updates
 
 def get_search_names(menu_name,depths,v0,v1):
-    nblocks = 2*np.sum(depths[:-1]) + depths[-1]
+    nblocks = int(2*np.sum(depths[:-1]) + depths[-1])
 
     if menu_name == "full":
         return [v0,]*nblocks
