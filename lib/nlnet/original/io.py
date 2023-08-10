@@ -232,6 +232,7 @@ def arch_pairs():
              "output_proj_depth":1,"drop_rate_pos":0.,
              "attn_timer":False,"use_spynet":True,
              "spynet_path":"./weights/spynet/spynet_sintel_final-3d2a1287.pth",
+             "use_spynet":False
     }
     return pairs | defs
 

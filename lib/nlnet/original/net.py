@@ -47,9 +47,12 @@ class SrNet(nn.Module):
         self.use_search_input = arch_cfg.use_search_input
         self.share_encdec = arch_cfg.share_encdec
         self.append_noise = arch_cfg.append_noise
+        self.use_spynet = arch_cfg.use_spynet
 
         # -- [optional] optical flow --
-        # self.spynet = SpyNet(arch_cfg.spynet_path)
+        self.spynet = None
+        if self.use_spynet:
+            self.spynet = SpyNet(arch_cfg.spynet_path)
         # print("spynet.")
 
         # -- dev --
@@ -175,7 +178,8 @@ class SrNet(nn.Module):
 
         # -- run flows --
         # if flows is None:
-        # flows = self.compute_flow(vid)
+        if self.use_spynet:
+            flows = self.compute_flow(vid)
 
         # -- Input Projection --
         y = self.input_proj(vid)

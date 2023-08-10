@@ -149,12 +149,33 @@ class LitModel(pl.LightningModule):
         if self.current_epoch >= self.flow_epoch:
             self.flow = True
 
+    def get_params(self):
+        #
+        # -- basic parameters --
+        #
+        params = [{"params":self.parameters()}]
+        if not(self.uses_spynet()):
+            return params
+        #
+        # -- include spynet with separate learning rate --
+        #
+
+        # -- all parameters except spynet --
+        named_params = self.net.named_parameters()
+        base_params = list(filter(lambda kv: not("spynet" in kv[0]), named_params))
+        base_params = [kv[1] for kv in base_params]
+        # print(base_params[0])
+
+        # -- spynet params --
+        spynet_params = self.net.spynet.parameters()
+        # print(list(spynet_params)[0])
+        params = [{"params":base_params},
+                  {'params': spynet_params, 'lr': self.lr_init/10}]
+        return params
+
     def configure_optimizers(self):
-        spy_params = None
-        if hasattr(self.net,"spynet"):
-            spy_params = self.net.spynet.parameters()
-        params = [{"params":self.parameters()},
-                  {'params': spy_params, 'lr': lr=self.lr_init/10}]
+        # -- train --
+        params = self.get_params()
         if self.optim_name == "adam":
             optim = th.optim.Adam(params,lr=self.lr_init,
                                   weight_decay=self.weight_decay)
@@ -220,8 +241,9 @@ class LitModel(pl.LightningModule):
 
         # -- set spynet to training --
         if self.global_step == self.spynet_global_step:
-            if hasattr(self.net,"spynet"):
-                self.net.spynet.train()
+            if self.uses_spynet(): self.net.spynet.train()
+        if self.global_step == 0:
+            if self.uses_spynet(): self.net.spynet.eval()
 
         # -- sample noise from simulator --
         self.sample_noisy(batch)
@@ -260,8 +282,10 @@ class LitModel(pl.LightningModule):
         get_psnr = lambda x,y: np.mean(compute_psnrs(x,y,div=1.)).item()
         val_psnr = get_psnr(denos,cleans)
         fill_psnr = get_psnr(fills,cleans) if self.fill_loss else -1
-        lr = self.optimizers()._optimizer.param_groups[-1]['lr']
-        # val_ssim = np.mean(compute_ssims(denos,cleans,div=1.)).item() # too slow.
+        lr = self.optimizers()._optimizer.param_groups[0]['lr']
+        lr1 = -1
+        if len(self.optimizers()._optimizer.param_groups) > 1:
+            lr1 = self.optimizers()._optimizer.param_groups[1]['lr']
         self.log("train_loss", loss.item(), on_step=True,
                  on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         self.log("train_psnr", val_psnr, on_step=True,
@@ -271,6 +295,9 @@ class LitModel(pl.LightningModule):
                      on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         self.log("lr", lr, on_step=True,
                  on_epoch=False, batch_size=self.batch_size, sync_dist=False)
+        if lr1 >= 0:
+            self.log("lr1", lr1, on_step=True,
+                     on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         self.log("global_step", self.global_step, on_step=True,
                  on_epoch=False, batch_size=self.batch_size, sync_dist=False)
         # self.log("train_ssim", val_ssim, on_step=True,
@@ -489,6 +516,9 @@ class LitModel(pl.LightningModule):
         acc = self.trainer.accumulate_grad_batches
         num_steps = dataset_size * self.trainer.max_epochs // (acc * num_devices)
         return num_steps
+
+    def uses_spynet(self):
+        return hasattr(self.net,"spynet") and not(self.net.spynet is None)
 
 def remove_lightning_load_state(state):
     names = list(state.keys())
