@@ -40,8 +40,10 @@ class BlockList(nn.Module):
         nres = blocklist.num_res
         n_feats = blocklist.embed_dim * blocklist.nheads * mult
         ksize = blocklist.res_ksize
+        append_noise = blocklist.append_noise and blocklist.enc_dec == "enc"
         self.nres = nres
-        self.res = ResBlockList(blocklist.num_res,n_feats,ksize,blocklist.res_bn)
+        self.res = ResBlockList(blocklist.num_res,n_feats,ksize,
+                                blocklist.res_bn,append_noise)
 
     def extra_repr(self) -> str:
         return str(self.blocklist)
@@ -54,9 +56,6 @@ class BlockList(nn.Module):
         # -- non-local blocks --
         for blk in self.blocks:
             vid = blk(vid,flows,state)
-
-        # -- a non-local stack --
-        # nls_stack
 
         return vid
 

@@ -10,6 +10,7 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange,repeat
+from einops.layers.torch import Rearrange
 
 # -- misc --
 from functools import partial
@@ -22,8 +23,8 @@ from timm.models.layers import trunc_normal_
 # -- project deps --
 # from .basic import BlockList
 from .blocklist import BlockList
-from .scaling import Downsample,Upsample
-from .proj import InputProj,InputProjSeq,OutputProj,OutputProjSeq
+from .scaling import Downsample,Upsample,UpsampleRvrt
+from .proj import InputProj,InputProjSeq,OutputProj,OutputProjSeq,get_input_proj_rvrt
 from ..utils.model_utils import apply_freeze,cfgs_slice
 from .spynet import SpyNet
 
@@ -32,7 +33,7 @@ from ..utils.timer import ExpTimerList
 
 class SrNet(nn.Module):
 
-    def __init__(self, arch_cfg, search_cfg, blocklists, scales, blocks):
+    def __init__(self, arch_cfg, search_cfg, blocklists, blocks):
         super().__init__()
 
         # -- init --
@@ -42,11 +43,12 @@ class SrNet(nn.Module):
         self.num_decs = len(blocklists)//2
         self.dd_in = arch_cfg.dd_in
         num_encs = self.num_encs
-        self.pos_drop = nn.Dropout(p=arch_cfg.drop_rate_pos)
+        # self.pos_drop = nn.Dropout(p=arch_cfg.drop_rate_pos)
         block_keys = ["blocklist","attn","search","normz","agg"]
         self.use_search_input = arch_cfg.use_search_input
         self.share_encdec = arch_cfg.share_encdec
         self.append_noise = arch_cfg.append_noise
+        self.upscale = 1
 
         # -- [optional] optical flow --
         # self.spynet = SpyNet(arch_cfg.spynet_path)
@@ -62,74 +64,46 @@ class SrNet(nn.Module):
         # -- input/output --
         nhead0 = blocklists[0].nheads
         embed_dim0 = blocklists[0].embed_dim
+        edim0 = embed_dim0*nhead0
+        # edim0 = embed_dim0
         out_chnls = 3
-        self.input_proj = InputProjSeq(depth=arch_cfg.input_proj_depth,
-                                       in_channel=arch_cfg.dd_in,
-                                       out_channel=embed_dim0*nhead0,
-                                       kernel_size=3, stride=1,
-                                       act_layer=nn.LeakyReLU,
-                                       norm_layer=arch_cfg.input_norm_layer)
-        self.output_proj = OutputProj(in_channel=2*embed_dim0*nhead0,
-                                      out_channel=out_chnls,
-                                      kernel_size=3,stride=1)
+        self.input_proj = get_input_proj_rvrt(edim0,arch_cfg.down_scale)
+        # self.input_proj = InputProjSeq(depth=arch_cfg.input_proj_depth,
+        #                                in_channel=3,#arch_cfg.dd_in,
+        #                                out_channel=edim0,
+        #                                kernel_size=3, stride=1,
+        #                                act_layer=nn.LeakyReLU,
+        #                                norm_layer=arch_cfg.input_norm_layer)
+        # self.output_proj = OutputProj(in_channel=2*embed_dim0*nhead0,
+        #                               out_channel=out_chnls,
+        #                               kernel_size=3,stride=1)
 
         # -- init --
         start,stop = 0,0
 
-        # -- encoder layers --
-        enc_list = []
-        for enc_i in range(num_encs):
 
-            # -- init --
-            start = stop
-            stop = start + blocklists[enc_i].depth
-            blocklist_i = blocklists[enc_i]
-            blocks_i = [blocks[i] for i in range(start,stop)]
-            enc_layer = BlockList("enc",blocklist_i,blocks_i)
-            down_layer = Downsample(scales[enc_i].in_dim,scales[enc_i].out_dim)
-            setattr(self,"encoderlayer_%d" % enc_i,enc_layer)
-            setattr(self,"dowsample_%d" % enc_i,down_layer)
+        # -- upsample --
+        import math
+        scale = 4
+        mid_ftrs = 64
+        block_mult = 4 if blocklists[-1].block_version == "v13" else 1
+        # num_feat = embed_dim0*nhead0*block_mult
+        # num_feat = embed_dim0*block_mult
+        in_ftrs = embed_dim0*nhead0*block_mult
+        num_feat = 64
+        out_channel = 3
+        # print("in_ftrs,num_feat: ",in_ftrs,num_feat)
+        self.conv_before_upsampler = nn.Sequential(
+            nn.Conv3d(in_ftrs,num_feat,kernel_size=(1, 1, 1), padding=(0, 0, 0)),
+            nn.LeakyReLU(negative_slope=0.1, inplace=True))
+        self.upsampler = UpsampleRvrt(arch_cfg.down_scale, num_feat)
+        self.conv_last = nn.Conv3d(num_feat, out_channel,
+                                   kernel_size=(1, 3, 3), padding=(0, 1, 1))
 
-            # -- add to list --
-            paired_layer = [enc_layer,down_layer]
-            enc_list.append(paired_layer)
-
-        self.enc_list = enc_list
-
-        # -- center --
-        start = stop
-        stop = start + blocklists[num_encs].depth
-        blocklist_i = blocklists[num_encs]
-        blocks_i = [blocks[i] for i in range(start,stop)]
-        setattr(self,"conv",BlockList("conv",blocklist_i,blocks_i))
-
-        # -- decoder --
-        dec_list = []
-        for dec_i in range(num_encs+1,2*num_encs+1):
-
-            # -- init --
-            start = stop
-            stop = start + blocklists[dec_i].depth
-            blocklist_i = blocklists[dec_i]
-            blocks_i = [blocks[i] for i in range(start,stop)]
-            up_layer = Upsample(scales[dec_i].in_dim,scales[dec_i].out_dim,
-                                scales[dec_i].up_method)
-            dec_layer = BlockList("dec",blocklist_i,blocks_i)
-            setattr(self,"upsample_%d" % dec_i,up_layer)
-            setattr(self,"decoderlayer_%d" % dec_i,dec_layer)
-
-            # -- add to list --
-            paired_layer = [up_layer,dec_layer]
-            dec_list.append(paired_layer)
-
-        self.dec_list = dec_list
+        # -- main layers --
+        self.block_layer = BlockList("enc",blocklists[0],blocks)
         self.apply(self._init_weights)
 
-        # -- first search --
-        search_cfg.nheads = arch_cfg.arch_nheads[0]
-        if self.use_search_input == "video":
-            search_cfg.nheads = 1
-        self.search = stnls.search.init(search_cfg)
 
     def _apply_freeze(self):
         if all([f is False for f in self.freeze]): return
@@ -156,97 +130,55 @@ class SrNet(nn.Module):
     def no_weight_decay_keywords(self):
         return {'relative_position_bias_table'}
 
-    def search_input(self, video, features, flows, state):
-        if self.use_search_input == "none": return None
-        srch = video if self.use_search_input == "video" else features
-        with th.no_grad():
-            dists,inds = self.search(srch,srch,flows.fflow,flows.bflow)
-            self.update_state(state,dists,inds,srch.shape)
+    def upsample(self,lqs,feats):
+        # hr = th.cat([feats[k] for k in feats], dim=2)
+        # hr = self.reconstruction(hr)
+        hr = self.conv_before_upsampler(feats.transpose(1, 2))
+        hr = self.upsampler(hr)
+        hr = self.conv_last(hr).transpose(1, 2)
+        hr += th.nn.functional.interpolate(lqs, size=hr.shape[-3:], mode='trilinear', align_corners=False)
+        return hr
 
-    def forward(self, vid, flows=None, states=None):
+    def forward(self, vid_in, flows=None, states=None):
+
 
         # -- unpack --
-        b,t,c,h,w = vid.shape
-        # print("vid.shape: ",vid.shape)
+        b,t,c,h,w = vid_in.shape
 
         # -- [optional] noise channel --
         if c == 4:
-            noise = vid[:,:,[3],:,:].contiguous()
+            noise = vid_in[:,:,[3],:,:].contiguous()
 
-        # -- run flows --
-        # if flows is None:
-        # flows = self.compute_flow(vid)
+        # if self.upscale == 4:
+        #     vid = vid_in.clone()
+        # else:
+        #     # vid = F.interpolate(vid_in[:, :, :3, :, :].view(-1, 3, h, w),
+        #     #                     scale_factor=0.25, mode='bicubic')\
+        #     #        .view(b, t, 3, h // 4, w // 4)
+        # vid = get_input_proj_rvrt(edim0)
 
         # -- Input Projection --
-        y = self.input_proj(vid)
-        y = self.pos_drop(y)
-        num_encs = self.num_encs
+        y = self.input_proj(vid_in)
+        # print("y.shape:" ,y.shape)
+        # num_encs = self.num_encs
 
         # -- init states --
         if states is None:
-            states = [None,None]# for _ in range(2*num_encs+1)]
+            states = [None,None]
 
-        # -- optional search --
-        self.search_input(vid,y,flows,states)
+        # -- forward --
+        z = self.block_layer(y,flows=flows,state=states)
 
-        # -- enc --
-        z = y
-        encs = []
-        share_states = []
-        states_i = [states[0],None]
-        for i,(enc,down) in enumerate(self.enc_list):
-
-            # -- optionally save for decoder --
-            if self.share_encdec:
-                share_states.append(states_i)
-
-            # -- optionally append noise --
-            if self.append_noise:
-                z = self.run_append_noise(z,noise)
-
-            # -- forward --
-            z = enc(z,flows=flows,state=states_i)
-            self.iprint("[enc] i: %d" % i,z.shape)
-            encs.append(z)
-            z = down(z)
-            self.iprint("[dow] i: %d" % i,z.shape)
-
-            # -- downsample states --
-            states_i = self.down_states(states_i)
-
-        # -- middle --
-        iH,iW = z.shape[-2:]
-        z = self.conv(z,flows=flows,state=states_i)
-        self.iprint("[mid]: ",z.shape)
-
-        # -- dec --
-        for i,(up,dec) in enumerate(self.dec_list):
-
-            # -- load encoder state --
-            if self.share_encdec:
-                states_i = share_states[-(i+1)]
-
-            # -- forward --
-            i_rev = (num_encs-1)-i
-            z = up(z)
-            self.iprint("[up] i: %d" % i,z.shape)
-            z = self.cat_pad(z,encs[i_rev],-3)
-            self.iprint("[cat] i: %d" % i,z.shape)
-            z = dec(z,flows=flows,state=states_i)
-            self.iprint("[dec] i: %d" % i,z.shape)
-
-            # -- update state --
-            # states_i = self.up_states(states_i)
+        # # -- middle --
+        # iH,iW = z.shape[-2:]
+        # z = self.conv(z,flows=flows,state=states_i)
+        # self.iprint("[mid]: ",z.shape)
 
         # -- Output Projection --
-        y = self.output_proj(z)
-
-        # -- residual connection --
-        out = vid + y if self.dd_in == 3 else y
+        out = self.upsample(vid_in[:,:,:3],z)
 
         # -- timing --
         self.update_block_times()
-        # print("done.")
 
         return out
 
