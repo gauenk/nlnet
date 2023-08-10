@@ -87,7 +87,7 @@ def lit_pairs():
              "sigma_min":-1,"sigma_max":-1,
              "optim_name":"adamw",
              "sgd_momentum":0.1,"sgd_dampening":0.1,
-             "coswr_T0":-1,"coswr_Tmult":1,"coswr_eta_min":1e-9,
+             "coswr_T0":-1,"coswr_Tmult":1,"coswr_eta_min":1e-8,
              "step_lr_multisteps":"30-50",
              "spynet_global_step":-1,"limit_train_batches":-1,
              "dd_in":3}
@@ -146,14 +146,19 @@ class LitModel(pl.LightningModule):
             self.flow = True
 
     def configure_optimizers(self):
+        spy_params = None
+        if hasattr(self.net,"spynet"):
+            spy_params = self.net.spynet.parameters()
+        params = [{"params":self.parameters()},
+                  {'params': spy_params, 'lr': lr=self.lr_init/10}]
         if self.optim_name == "adam":
-            optim = th.optim.Adam(self.parameters(),lr=self.lr_init,
+            optim = th.optim.Adam(params,lr=self.lr_init,
                                   weight_decay=self.weight_decay)
         elif self.optim_name == "adamw":
-            optim = th.optim.AdamW(self.parameters(),lr=self.lr_init,
+            optim = th.optim.AdamW(params,lr=self.lr_init,
                                    weight_decay=self.weight_decay)
         elif self.optim_name == "sgd":
-            optim = th.optim.SGD(self.parameters(),lr=self.lr_init,
+            optim = th.optim.SGD(params,lr=self.lr_init,
                                  weight_decay=self.weight_decay,
                                  momentum=self.sgd_momentum,
                                  dampening=self.sgd_dampening)
@@ -209,7 +214,7 @@ class LitModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
 
-        # -- check spynet --
+        # -- set spynet to training --
         if self.global_step == self.spynet_global_step:
             if hasattr(self.net,"spynet"):
                 self.net.spynet.train()

@@ -49,8 +49,7 @@ def get_blocks(cfg):
     econfig.init(cfg)
     pairs = {"search_menu_name":"full",
              "search_v0":"exact","search_v1":"refine",
-             "k_agg":10,
-             "qk_frac":1.,"qkv_ngroups":1,
+             "k_agg":10,"qk_frac":1.,"qkv_ngroups":1,
              "inner_mult":2,"nls_normalize_bwd":False,
              "attn_proj_version":"v1",
              "attn_proj_ksize":"",
@@ -202,6 +201,12 @@ def search_menu(depths,menu_name,v0,v1,nls_normalize_bwd):
     params.use_state_update = get_use_state_updates(params.search_name)
     L = len(params.use_state_update)
     params.normalize_bwd = [nls_normalize_bwd,]*L
+    # names = ["qk_frac","qkv_ngroups","inner_mult",
+    #          "attn_proj_version","attn_proj_ksize",
+    #          "attn_proj_stride","attn_proj_ngroups"]
+    # lists = [cfg[name] for name in names]
+    # unpack_params(depths,lists,names)
+
     return params
 
 def get_use_state_updates(search_names):
