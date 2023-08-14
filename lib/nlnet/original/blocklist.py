@@ -30,6 +30,7 @@ class BlockList(nn.Module):
         self.blocklist = blocklist
 
         # -- blocks --
+        # print(blocks[0].search)
         self.blocks = nn.ModuleList(
             [BlockLayer(btype,blocklist,blocks[d])
              for d in range(blocklist.depth)])

@@ -49,7 +49,7 @@ def get_blocks(cfg):
     econfig.init(cfg)
     pairs = {"search_menu_name":"full",
              "search_v0":"exact","search_v1":"refine",
-             "k_agg":10,"qk_frac":1.,"qkv_ngroups":1,
+             "k_agg":10,"ps":3,"ws":7,"qk_frac":1.,"qkv_ngroups":1,
              "inner_mult":2,"nls_normalize_bwd":False,
              "attn_proj_version":"v1",
              "attn_proj_ksize":"",
@@ -86,7 +86,7 @@ def get_blocks(cfg):
     v0,v1 = cfg.search_v0,cfg.search_v1
     normalize_bwd = cfg.nls_normalize_bwd
     search_params = search_menu(depths,search_menu_name,v0,v1,normalize_bwd)
-    names = ["k_agg"]
+    names = ["k_agg","ps","ws","stride0"]
     lists = [cfg[name] for name in names]
     search_params_u = unpack_params(depths,lists,names)
     for key in search_params_u:
