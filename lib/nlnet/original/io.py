@@ -221,7 +221,8 @@ def blocklist_pairs():
             "num_res":3,"res_ksize":3,"nres_per_block":3,"res_bn":False,
             "stg_depth":2,"stg_nheads":4,"stg_ngroups":1,"up_method":"convT"}
     training = {"drop_rate_mlp":0.,"drop_rate_path":0.1}
-    pairs = info | training | defs
+    # pairs = info | training | defs
+    pairs = {**info, **training, **defs}
     return pairs
 
 def arch_pairs():
@@ -234,7 +235,7 @@ def arch_pairs():
              "spynet_path":"./weights/spynet/spynet_sintel_final-3d2a1287.pth",
              "use_spynet":False
     }
-    return pairs | defs
+    return {**pairs, **defs}
 
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-
