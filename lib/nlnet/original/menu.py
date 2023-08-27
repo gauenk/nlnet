@@ -86,7 +86,7 @@ def get_blocks(cfg):
     v0,v1 = cfg.search_v0,cfg.search_v1
     normalize_bwd = cfg.nls_normalize_bwd
     search_params = search_menu(depths,search_menu_name,v0,v1,normalize_bwd)
-    names = ["k","k_agg","ps","ws","stride0"]
+    names = ["k","k_agg","ps","ws","stride0","stride1"]
     lists = [cfg[name] for name in names]
     search_params_u = unpack_params(depths,lists,names)
     for key in search_params_u:

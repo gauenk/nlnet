@@ -16,6 +16,7 @@ from easydict import EasyDict as edict
 
 # -- vision --
 import torchvision.transforms as tvt
+import torchvision.transforms.functional as tvf
 
 # -- data --
 import data_hub
@@ -92,9 +93,10 @@ def lit_pairs():
              "sgd_momentum":0.1,"sgd_dampening":0.1,
              "coswr_T0":-1,"coswr_Tmult":1,"coswr_eta_min":1e-8,
              "step_lr_multisteps":"30-50",
-             "spynet_global_step":-1,"limit_train_batches":-1,"dd_in":3,
+             "spynet_global_step":50,"limit_train_batches":-1,"dd_in":3,
              "fill_loss":False,"fill_loss_weight":1.,"fill_loss_n":10,
-             "fill_loss_scale_min":.01,"fill_loss_scale_max":0.05}
+             "fill_loss_scale_min":.01,"fill_loss_scale_max":0.05,
+             "spynet_sup":False,"spynet_sup_scales":[0.5,0.25],"spynet_sup_lamb":0.1}
     return pairs
 
 def sim_pairs():
@@ -170,7 +172,7 @@ class LitModel(pl.LightningModule):
         spynet_params = self.net.spynet.parameters()
         # print(list(spynet_params)[0])
         params = [{"params":base_params},
-                  {'params': spynet_params, 'lr': self.lr_init/10}]
+                  {'params': spynet_params, 'lr': self.lr_init*0.75}]
         return params
 
     def configure_optimizers(self):
@@ -240,9 +242,9 @@ class LitModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
 
         # -- set spynet to training --
-        if self.global_step == self.spynet_global_step:
+        if self.global_step == self.spynet_global_step and not(self.spynet_sup):
             if self.uses_spynet(): self.net.spynet.train()
-        if self.global_step == 0:
+        if self.global_step == 0 or self.spynet_sup:
             if self.uses_spynet(): self.net.spynet.eval()
 
         # -- sample noise from simulator --
@@ -329,8 +331,45 @@ class LitModel(pl.LightningModule):
         fill = self.forward(tofill,flows)
 
         # -- report loss --
-        loss = th.mean((clean - fill)**2)
+        eps = 1e-3
+        loss = th.sqrt(th.mean((clean - fill)**2) + eps**2)
+        # loss = th.mean((clean - fill)**2)
         return fill.detach(),loss
+
+    def rescale(self,vid,scale):
+
+        # -- unpack and reshape --
+        vshape = list(vid.shape)
+        C,H,W = vshape[-3:]
+        vid = vid.reshape(-1,C,H,W)
+
+        # -- rescale --
+        iscale = (int(scale*H),int(scale*W))
+        vid = tvf.resize(vid,iscale)
+
+        # -- shape back --
+        vshape[-2] = int(scale*H)
+        vshape[-1] = int(scale*W)
+        vid = vid.reshape(*vshape)
+
+        return vid
+
+    def train_step_spynet(self, noisy, clean):
+        spynet = self.net.spynet
+        loss = 0
+        eps = 1e-3
+        H,W = noisy.shape[-2:]
+        for scale in self.spynet_sup_scales:
+            noisy_s = self.rescale(noisy,scale)
+            clean_s = self.rescale(clean,scale)
+            flows_n = self.net.compute_flow(noisy_s)
+            fflow_n,bflow_n = flows_n.fflow,flows_n.bflow
+            flows_c = self.net.compute_flow(clean_s)
+            fflow_c,bflow_c = flows_c.fflow,flows_c.bflow
+            loss += th.sqrt(th.mean((fflow_n - fflow_c)**2)+eps)
+            loss += th.sqrt(th.mean((bflow_n - bflow_c)**2)+eps)
+        loss = self.spynet_sup_lamb * loss/(2. * len(self.spynet_sup_scales))
+        return loss
 
     def training_step_i(self, batch, start, stop):
 
@@ -353,13 +392,19 @@ class LitModel(pl.LightningModule):
         deno = self.forward(noisy,flows)
 
         # -- report loss --
-        loss = th.mean((clean - deno)**2)
+        eps = 1e-3
+        loss = th.sqrt(th.mean((clean - deno)**2) + eps**2)
+        # loss = th.mean((clean - deno)**2)
 
         # -- forward fill --
         fill_f = None
         if self.fill_loss:
             fill_f,loss_f = self.training_step_fill(clean,flows)
             loss += self.fill_loss_weight * loss_f
+
+        # -- spynet training --
+        if self.spynet_sup and self.uses_spynet():
+            loss = loss + self.train_step_spynet(noisy,clean)
 
         return deno.detach(),fill_f,clean,loss
 
@@ -435,9 +480,9 @@ class LitModel(pl.LightningModule):
 
         # -- image --
         noisy = noisy.clamp(0,1)
-        # if not(self.logger is None):
-        #     self.logger.log_image(key="val_noisy_"+str(int(val_index)), 
-        #                           images=[noisy[0][t] for t in range(T)])
+        if not(self.logger is None):
+            self.logger.log_image(key="val_noisy_"+str(int(val_index)), 
+                                  images=[noisy[0][t] for t in range(T)])
         #     self.logger.log_image(key="val_deno_"+str(int(val_index)), 
         #                           images=[deno[0][t] for t in range(T)])
         self.gen_loger.info("val_psnr: %2.2f" % val_psnr)
