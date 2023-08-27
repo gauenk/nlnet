@@ -48,6 +48,8 @@ class SrNet(nn.Module):
         self.share_encdec = arch_cfg.share_encdec
         self.append_noise = arch_cfg.append_noise
         self.use_spynet = arch_cfg.use_spynet
+        # self.use_spynet_second_order_flows = False
+        self.use_second_order_flows = arch_cfg.use_second_order_flows
 
         # -- [optional] optical flow --
         self.spynet = None
@@ -180,6 +182,8 @@ class SrNet(nn.Module):
         # if flows is None:
         if self.use_spynet:
             flows = self.compute_flow(vid)
+        else:
+            flows = self.ensure_flow_dim(flows)
 
         # -- Input Projection --
         y = self.input_proj(vid)
@@ -284,7 +288,28 @@ class SrNet(nn.Module):
         return th.cat([z,enc],dim)
 
 
+    def ensure_flow_dim(self, flows):
+        ff_ndim = flows.fflow.ndim
+        bf_ndim = flows.fflow.ndim
+        tof = self.use_second_order_flows
+        if ff_ndim == 5 and bf_ndim == 5 and tof:
+            flows.fflow = self.derive_second_order_flows(flows.fflow)
+            flows.bflow = self.derive_second_order_flows(flows.bflow)
+        return flows
+
     def compute_flow(self, lqs):
+        fflow,bflow = self.compute_first_order_flows(lqs)
+        if self.use_second_order_flows:
+            fflow2,bflow2 = self.compute_second_order_flows(lqs,fflow,bflow)
+            fflow = th.stack([fflow,fflow2],-4)
+            bflow = th.stack([bflow,bflow2],-4)
+
+        flows = edict()
+        flows.fflow = fflow
+        flows.bflow = bflow
+        return flows
+
+    def compute_first_order_flows(self,lqs):
         """Compute optical flow using SPyNet for feature alignment.
 
         Note that if the input is an mirror-extended sequence, 'flows_forward'
@@ -315,10 +340,25 @@ class SrNet(nn.Module):
         flows_forward = self.spynet(lqs_2, lqs_1).view(n, t - 1, 2, h, w)
         flows_forward = th.cat([flows_forward,zflow],1)
 
-        flows = edict()
-        flows.fflow = flows_forward
-        flows.bflow = flows_backward
-        return flows
+        return flows_forward,flows_backward
+
+
+    def compute_second_order_flows(self,lqs,fflow1,bflow1):
+        n, t, c, h, w = lqs.size()
+        lqs_1 = lqs[:, :-2, :, :, :].reshape(-1, c, h, w)
+        lqs_2 = lqs[:, 2:, :, :, :].reshape(-1, c, h, w)
+        zflow = th.zeros((n,1,2,h,w),device=lqs.device)
+
+        flows_backward = self.spynet(lqs_1, lqs_2).view(n, t - 2, 2, h, w)
+        flows_backward = th.cat([zflow,zflow,flows_backward],1)
+
+        flows_forward = self.spynet(lqs_2, lqs_1).view(n, t - 2, 2, h, w)
+        flows_forward = th.cat([flows_forward,zflow,zflow],1)
+
+        # flows = edict()
+        # flows.fflow = flows_forward
+        # flows.bflow = flows_backward
+        return flows_forward,flows_backward
 
     def down_states(self,states):
         return [self.down_inds(states[0]),self.down_inds(states[1])]
