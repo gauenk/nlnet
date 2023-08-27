@@ -96,7 +96,8 @@ def lit_pairs():
              "spynet_global_step":50,"limit_train_batches":-1,"dd_in":3,
              "fill_loss":False,"fill_loss_weight":1.,"fill_loss_n":10,
              "fill_loss_scale_min":.01,"fill_loss_scale_max":0.05,
-             "spynet_sup":False,"spynet_sup_scales":[0.5,0.25],"spynet_sup_lamb":0.1}
+             "spynet_sup":False,"spynet_sup_scales":[0.5,0.25],
+             "spynet_sup_lamb":0.1,"spynet_lr_frac":0.1}
     return pairs
 
 def sim_pairs():
@@ -126,6 +127,7 @@ class LitModel(pl.LightningModule):
         self.gen_loger = logging.getLogger('lightning')
         self.gen_loger.setLevel("NOTSET")
         self.automatic_optimization=True
+        if self.spynet_sup: self.net.spynet.train()
 
     def forward(self,vid,flows=None):
         if flows is None:
@@ -172,7 +174,7 @@ class LitModel(pl.LightningModule):
         spynet_params = self.net.spynet.parameters()
         # print(list(spynet_params)[0])
         params = [{"params":base_params},
-                  {'params': spynet_params, 'lr': self.lr_init*0.75}]
+                  {'params': spynet_params, 'lr': self.lr_init*self.spynet_lr_frac}]
         return params
 
     def configure_optimizers(self):
@@ -244,7 +246,7 @@ class LitModel(pl.LightningModule):
         # -- set spynet to training --
         if self.global_step == self.spynet_global_step and not(self.spynet_sup):
             if self.uses_spynet(): self.net.spynet.train()
-        if self.global_step == 0 or self.spynet_sup:
+        if self.global_step == 0 and not(self.spynet_sup):
             if self.uses_spynet(): self.net.spynet.eval()
 
         # -- sample noise from simulator --
@@ -357,14 +359,15 @@ class LitModel(pl.LightningModule):
     def train_step_spynet(self, noisy, clean):
         spynet = self.net.spynet
         loss = 0
-        eps = 1e-3
+        eps = 1e-6
         H,W = noisy.shape[-2:]
         for scale in self.spynet_sup_scales:
             noisy_s = self.rescale(noisy,scale)
             clean_s = self.rescale(clean,scale)
             flows_n = self.net.compute_flow(noisy_s)
             fflow_n,bflow_n = flows_n.fflow,flows_n.bflow
-            flows_c = self.net.compute_flow(clean_s)
+            with th.no_grad():
+                flows_c = self.net.compute_flow(clean_s)
             fflow_c,bflow_c = flows_c.fflow,flows_c.bflow
             loss += th.sqrt(th.mean((fflow_n - fflow_c)**2)+eps)
             loss += th.sqrt(th.mean((bflow_n - bflow_c)**2)+eps)
@@ -531,9 +534,9 @@ class LitModel(pl.LightningModule):
         self.log("global_step",self.global_step,on_step=True,
                  on_epoch=False,batch_size=1)
         # if not(self.logger is None):
-        #     self.logger.log_image(key="te_noisy_"+str(int(index)), 
+        #     self.logger.log_image(key="te_noisy_"+str(int(index)),
         #                           images=[noisy[0][t].clamp(0,1) for t in range(T)])
-        #     self.logger.log_image(key="te_deno_"+str(int(index)), 
+        #     self.logger.log_image(key="te_deno_"+str(int(index)),
                                   # images=[deno[0][t].clamp(0,1) for t in range(T)])
         self.gen_loger.info("te_psnr: %2.2f" % psnr)
         self.gen_loger.info("te_ssim: %.3f" % ssim)
