@@ -127,7 +127,8 @@ def load_model(cfg):
                            "attn_proj_stride",
                            "attn_proj_ngroups"],
                    "search":["search_name","use_state_update",
-                             "normalize_bwd","k_agg","ps","ws","stride0","stride1","k"],
+                             "normalize_bwd","k_agg","ps","ws",
+                             "stride0","stride1","k","ref_itype_fwd"],
                    "normz":["k_agg"],"agg":[],}
     fields = ["attn","search","normz","agg"]
     menu_blocks = menu.get_blocks(cfg)
