@@ -483,9 +483,9 @@ class LitModel(pl.LightningModule):
 
         # -- image --
         noisy = noisy.clamp(0,1)
-        if not(self.logger is None):
-            self.logger.log_image(key="val_noisy_"+str(int(val_index)), 
-                                  images=[noisy[0][t] for t in range(T)])
+        # if not(self.logger is None):
+        #     self.logger.log_image(key="val_noisy_"+str(int(val_index)), 
+        #                           images=[noisy[0][t] for t in range(T)])
         #     self.logger.log_image(key="val_deno_"+str(int(val_index)), 
         #                           images=[deno[0][t] for t in range(T)])
         self.gen_loger.info("val_psnr: %2.2f" % val_psnr)
