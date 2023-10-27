@@ -9,7 +9,7 @@ from .original import extract_config as extract_model_config
 
 # -- next gen --
 from . import version2
-from . import version3
+# from . import version3
 # from . import version4
 
 # -- hooks --

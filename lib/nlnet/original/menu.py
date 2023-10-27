@@ -55,6 +55,7 @@ def get_blocks(cfg):
              "attn_proj_ksize":"",
              "attn_proj_stride":"",
              "attn_proj_ngroups":"nheads",
+             "ref_itype_fwd":"int",
     }
     cfg = econfig.extract_pairs(cfg,pairs)
     # -- finish args --

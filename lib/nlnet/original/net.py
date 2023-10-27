@@ -298,6 +298,8 @@ class SrNet(nn.Module):
         return flows
 
     def compute_flow(self, lqs):
+        if lqs.shape[-3] == 4:
+            lqs = lqs[...,:3,:,:].contiguous()
         fflow,bflow = self.compute_first_order_flows(lqs)
         if self.use_second_order_flows:
             fflow2,bflow2 = self.compute_second_order_flows(lqs,fflow,bflow)
