@@ -10,7 +10,7 @@ from timm.models.layers import DropPath
 
 # -- project deps --
 # from .nl_attn_vid import NonLocalAttentionVideo
-from stnls.pytorch.nn import NonLocalAttention
+from stnls.nn import NonLocalAttention
 
 # -- benchmarking --
 from dev_basics.utils.timer import ExpTimerList
