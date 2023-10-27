@@ -83,7 +83,7 @@ def lit_pairs():
     pairs = {"batch_size":1,"flow":True,"flow_method":"cv2",
              "isize":None,"bw":False,"lr_init":1e-3,
              "lr_final":1e-8,"weight_decay":1e-8,
-             "nepochs":0,"task":"denoising","uuid":"",
+             "nepochs":0,"nsteps":0,"task":"denoising","uuid":"",
              "scheduler_name":"default","step_lr_size":5,
              "step_lr_gamma":0.1,"flow_epoch":None,
              "flow_from_end":None,"use_wandb":False,
@@ -200,6 +200,7 @@ class LitModel(pl.LightningModule):
     def configure_scheduler(self,optim):
 
         if self.scheduler_name in ["default","exp_decay"]:
+            assert self.nepochs > 0,"Must be using epoch mode."
             gamma = math.exp(math.log(self.lr_final/self.lr_init)/self.nepochs)
             ExponentialLR = th.optim.lr_scheduler.ExponentialLR
             scheduler = ExponentialLR(optim,gamma=gamma) # (.995)^50 ~= .78
@@ -211,11 +212,12 @@ class LitModel(pl.LightningModule):
             scheduler = StepLR(optim,step_size=self.step_lr_size,
                                gamma=self.step_lr_gamma)
         elif self.scheduler_name in ["cosa"]:
+            assert self.nepochs > 0,"Must be using epoch mode."
             CosAnnLR = th.optim.lr_scheduler.CosineAnnealingLR
             scheduler = CosAnnLR(optim,self.nepochs)
             scheduler = {"scheduler": scheduler, "interval": "epoch", "frequency": 1}
         elif self.scheduler_name in ["cosa_step"]:
-            nsteps = self.num_steps()
+            nsteps = self.nsteps if self.nsteps > 0 else self.num_steps()
             print("[CosAnnLR] nsteps: ",nsteps)
             CosAnnLR = th.optim.lr_scheduler.CosineAnnealingLR
             scheduler = CosAnnLR(optim,T_max=nsteps)

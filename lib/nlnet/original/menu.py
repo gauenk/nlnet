@@ -55,7 +55,7 @@ def get_blocks(cfg):
              "attn_proj_ksize":"",
              "attn_proj_stride":"",
              "attn_proj_ngroups":"nheads",
-             "ref_itype_fwd":"int",
+             "ref_itype":"int",
     }
     cfg = econfig.extract_pairs(cfg,pairs)
     # -- finish args --
@@ -123,7 +123,6 @@ def unpack_params(depths,lists,names):
     params = edict()
     for name in names:
         params[name] = []
-    
 
     # -- helper --
     def get_val(val,d,depths_i):
