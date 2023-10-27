@@ -16,12 +16,8 @@ from . import menu
 from .net import SrNet
 from .scaling import Downsample,Upsample # defaults
 
-
 # -- search/normalize/aggregate --
 import stnls
-# from .. import search
-# from .. import normz
-# from .. import agg
 
 # -- io --
 # from ..utils import model_io
@@ -31,49 +27,6 @@ from dev_basics import arch_io
 from dev_basics.configs import ExtractConfig,dcat
 econfig = ExtractConfig(__file__) # init extraction
 extract_config = econfig.extract_config # rename extraction
-
-"""
-arch:
-  in_chans:3,
-  dd_in:3,
-  dowsample:"Downsample"
-  upsample:"Upsample"
-  embed_dim:None
-  "input_proj_depth":1
-  "output_proj_depth":1
-  "drop_rate_pos":0.
-  "attn_timer":False
-
-But how do I do this?
-    # -> we must have its own search_cfg --
-    arch.use_search_input = "none"
-    arch.share_encdec = False
-    # arch.share_encdec = [False,]*ndepth
-    if search_menu_name == "once_video":
-        arch.use_search_input = "video"
-        arch.share_encdec = True#[True,]*ndepth
-    elif search_menu_name == "once_features":
-        arch.use_search_input = "features"
-        arch.share_encdec = True#[True,]*len(depths)
-
-
-__So it shouldn't be a "cfg" file but a Python file.__
-
-
-fixed_pairs = {"arch":{"in_chans":3,...},...}
-
-dyn_pairs = [[["use_search_input","share_encdec"],share_search_fxn_name],
-             [[fieldname0,fieldname1,fieldname3],other_fxn_name],
-            ]
-
-Common Usage of Dynamic Config:
-
-cfg.search_name = "nls" vs. "nat"
-
-cfg = search.extract_config(cfg) "nat" OR "nls" parameters but _not both_.
-
-"""
-
 
 # -- load the model --
 @econfig.set_init
@@ -128,8 +81,9 @@ def load_model(cfg):
                            "attn_proj_ngroups"],
                    "search":["search_name","use_state_update",
                              "normalize_bwd","k_agg","ps","ws",
-                             "stride0","stride1","k","ref_itype_fwd"],
-                   "normz":["k_agg"],"agg":[],}
+                             "stride0","stride1","k","ref_itype"],
+                   "normz":["k_agg"],
+                   "agg":["inner_mult"],}
     fields = ["attn","search","normz","agg"]
     menu_blocks = menu.get_blocks(cfg)
     blocks = menu.fill_menu(cfgs,fields,menu_blocks,fill_fields)
@@ -138,7 +92,10 @@ def load_model(cfg):
     # block_cfgs = [cfgs[f] for f in block_fields]
     # blocks_lib.copy_cfgs(block_cfgs,blocks)
     # print(blocks[0].search)
-    # print(blocks[0].search['k_agg'])
+    # print(blocks[0].agg)
+    # print(blocks[0].attn)
+    # # # print(blocks[0].search['k_agg'])
+    # exit()
 
 
     # -- expand blocklists --
@@ -148,8 +105,10 @@ def load_model(cfg):
     # -- fill blocks with blocklists --
     dfill = {"attn":["nheads","embed_dim"],"search":["nheads"],
              "res":["nres_per_block","res_ksize","res_bn",
-                    "stg_depth","stg_nheads","stg_ngroups"]}
+                    "stg_depth","stg_nheads","stg_ngroups"],
+             "agg":["nheads","embed_dim"]}
     fill_blocks(blocks,blocklists,dfill)
+
 
     # -- create down/up sample --
     scales = create_scales(blocklists)
@@ -207,13 +166,6 @@ def io_pairs():
              "pretrained_type":"lit",
              "pretrained_root":"."}
     return pairs
-
-# def attn_pairs():
-#     pairs = {"qk_frac":1.,"qkv_bias":True,
-#              "token_mlp":'leff',"attn_mode":"default",
-#              "token_projection":'linear',
-#              "drop_rate_proj":0.,"attn_timer":False}
-#     return pairs
 
 def blocklist_pairs():
     defs = shared_defaults()

@@ -49,7 +49,8 @@ def get_blocks(cfg):
     econfig.init(cfg)
     pairs = {"search_menu_name":"full",
              "search_v0":"exact","search_v1":"refine",
-             "k":20,"k_agg":10,"ps":3,"ws":7,"qk_frac":1.,"qkv_ngroups":1,
+             "k":20,"k_agg":10,"ps":3,"ws":7,
+             "qk_frac":1.,"qkv_ngroups":1,
              "inner_mult":2,"nls_normalize_bwd":False,
              "attn_proj_version":"v1",
              "attn_proj_ksize":"",
@@ -69,17 +70,11 @@ def get_blocks(cfg):
 
     # -- unpack attn name --
     # ...
-    names = ["qk_frac","qkv_ngroups","inner_mult",
+    names = ["qk_frac","qkv_ngroups",
              "attn_proj_version","attn_proj_ksize",
              "attn_proj_stride","attn_proj_ngroups"]
     lists = [cfg[name] for name in names]
     attn_params = unpack_params(depths,lists,names)
-    # attn_params = get_attn_params(depths,cfg.qk_frac,
-    #                               cfg.qkv_ngroups,cfg.inner_mult,
-    #                               cfg.attn_proj_version,
-    #                               cfg.attn_proj_ksize,
-    #                               cfg.attn_proj_stride,
-    #                               cfg.attn_proj_ngroups)
 
     # -- unpack search name --
     # "search_vX" in ["exact","refine","approx_t","approx_s","approx_st"]
@@ -87,7 +82,7 @@ def get_blocks(cfg):
     v0,v1 = cfg.search_v0,cfg.search_v1
     normalize_bwd = cfg.nls_normalize_bwd
     search_params = search_menu(depths,search_menu_name,v0,v1,normalize_bwd)
-    names = ["k","k_agg","ps","ws","stride0","stride1","ref_itype_fwd"]
+    names = ["k","k_agg","ps","ws","stride0","stride1","ref_itype"]
     lists = [cfg[name] for name in names]
     search_params_u = unpack_params(depths,lists,names)
     for key in search_params_u:
@@ -99,14 +94,16 @@ def get_blocks(cfg):
     normz_params = unpack_params(depths,lists,names)
 
     # -- unpack agg name --
-    # ...
+    names = ["inner_mult"]
+    lists = [cfg[name] for name in names]
+    agg_params = unpack_params(depths,lists,names)
 
     # # -- arch params --
     # arch_params = arch_menu(search_params)
 
     # -- expand out blocks --
     blocks = []
-    params = [attn_params,search_params,normz_params]
+    params = [attn_params,search_params,normz_params,agg_params]
     # params = [search_params]
     for l in range(nblocks):
         block_l = edict()
