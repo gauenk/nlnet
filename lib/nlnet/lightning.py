@@ -217,7 +217,7 @@ class LitModel(pl.LightningModule):
             scheduler = CosAnnLR(optim,self.nepochs)
             scheduler = {"scheduler": scheduler, "interval": "epoch", "frequency": 1}
         elif self.scheduler_name in ["cosa_step"]:
-            nsteps = self.nsteps if self.nsteps > 0 else self.num_steps()
+            nsteps = self.num_steps()
             print("[CosAnnLR] nsteps: ",nsteps)
             CosAnnLR = th.optim.lr_scheduler.CosineAnnealingLR
             scheduler = CosAnnLR(optim,T_max=nsteps)
@@ -556,7 +556,9 @@ class LitModel(pl.LightningModule):
     def num_steps(self) -> int:
         """Get number of steps"""
         # Accessing _data_source is flaky and might break
-        if self.limit_train_batches > 0:
+        if self.nsteps > 0:
+            return self.nsteps
+        elif self.limit_train_batches > 0:
             dataset_size = self.limit_train_batches
             num_devices = 1
         else:
