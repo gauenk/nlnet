@@ -97,7 +97,8 @@ def lit_pairs():
              "fill_loss":False,"fill_loss_weight":1.,"fill_loss_n":10,
              "fill_loss_scale_min":.01,"fill_loss_scale_max":0.05,
              "spynet_sup":False,"spynet_sup_scales":[0.5,0.25],
-             "spynet_sup_lamb":0.1,"spynet_lr_frac":0.1}
+             "spynet_sup_lamb":0.1,"spynet_lr_frac":0.1,
+             "accumulate_grad_batches":1}
     return pairs
 
 def sim_pairs():
