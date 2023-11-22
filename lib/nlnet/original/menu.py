@@ -57,7 +57,7 @@ def get_blocks(cfg):
              "attn_proj_stride":"",
              "attn_proj_ngroups":"nheads",
              "ref_itype":"int","itype":"float",
-             "stride0":1,"stride1":1
+             "stride0":1,"stride1":1,
              "self_action":None,
     }
     cfg = econfig.extract_pairs(cfg,pairs)
