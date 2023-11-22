@@ -81,7 +81,7 @@ def load_model(cfg):
                            "attn_proj_ngroups"],
                    "search":["search_name","use_state_update",
                              "normalize_bwd","k_agg","ps","ws",
-                             "stride0","stride1","k","ref_itype"],
+                             "stride0","stride1","k","ref_itype","self_action"],
                    "normz":["k_agg"],
                    "agg":["inner_mult"],}
     fields = ["attn","search","normz","agg"]

@@ -58,6 +58,7 @@ def get_blocks(cfg):
              "attn_proj_ngroups":"nheads",
              "ref_itype":"int","itype":"float",
              "stride0":1,"stride1":1
+             "self_action":None,
     }
     cfg = econfig.extract_pairs(cfg,pairs)
     # -- finish args --
@@ -83,7 +84,7 @@ def get_blocks(cfg):
     v0,v1 = cfg.search_v0,cfg.search_v1
     normalize_bwd = cfg.nls_normalize_bwd
     search_params = search_menu(depths,search_menu_name,v0,v1,normalize_bwd)
-    names = ["k","k_agg","ps","ws","stride0","stride1","ref_itype"]
+    names = ["k","k_agg","ps","ws","stride0","stride1","ref_itype","self_action"]
     lists = [cfg[name] for name in names]
     search_params_u = unpack_params(depths,lists,names)
     for key in search_params_u:
